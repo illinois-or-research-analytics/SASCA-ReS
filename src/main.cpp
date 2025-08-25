@@ -29,10 +29,6 @@ int main(int argc, char* argv[]) {
         .default_value(double(-1))
         .help("Preferential attachment weight")
         .scan<'g', double>();
-    main_program.add_argument("--recency-weight")
-        .default_value(double(-1))
-        .help("Recency weight")
-        .scan<'g', double>();
     main_program.add_argument("--fitness-weight")
         .default_value(double(-1))
         .help("Fitness weight")
@@ -41,21 +37,9 @@ int main(int argc, char* argv[]) {
         .default_value(double(-1))
         .help("Minimum preferential attachment weight")
         .scan<'g', double>();
-    main_program.add_argument("--minimum-recency-weight")
-        .default_value(double(-1))
-        .help("Minimum recency weight")
-        .scan<'g', double>();
     main_program.add_argument("--minimum-fitness-weight")
         .default_value(double(-1))
         .help("Minimum fitness weight")
-        .scan<'g', double>();
-    main_program.add_argument("--alpha")
-        .default_value(double(-1))
-        .help("Neighborhood alpha")
-        .scan<'g', double>();
-    main_program.add_argument("--minimum-alpha")
-        .default_value(double(-1))
-        .help("Minimum neighborhood alpha")
         .scan<'g', double>();
     main_program.add_argument("--fully-random-citations")
         .default_value(double(0.05))
@@ -107,14 +91,10 @@ int main(int argc, char* argv[]) {
     std::string out_degree_bag = main_program.get<std::string>("--out-degree-bag");
     std::string recency_probabilities = main_program.get<std::string>("--recency-probabilities");
     std::string planted_nodes = main_program.get<std::string>("--planted-nodes");
-    double alpha = main_program.get<double>("--alpha");
-    double minimum_alpha = main_program.get<double>("--minimum-alpha");
     double fully_random_citations = main_program.get<double>("--fully-random-citations");
     double preferential_weight = main_program.get<double>("--preferential-weight");
-    double recency_weight = main_program.get<double>("--recency-weight");
     double fitness_weight = main_program.get<double>("--fitness-weight");
     double minimum_preferential_weight = main_program.get<double>("--minimum-preferential-weight");
-    double minimum_recency_weight = main_program.get<double>("--minimum-recency-weight");
     double minimum_fitness_weight = main_program.get<double>("--minimum-fitness-weight");
     double growth_rate = main_program.get<double>("--growth-rate");
     int num_cycles = main_program.get<int>("--num-cycles");
@@ -125,7 +105,7 @@ int main(int argc, char* argv[]) {
     std::string log_file = main_program.get<std::string>("--log-file");
     int num_processors = main_program.get<int>("--num-processors");
     int log_level = main_program.get<int>("--log-level") - 1; // so that enum is cleaner
-    ABM* abm = new ABM(edgelist, nodelist, out_degree_bag, recency_probabilities, planted_nodes, alpha, minimum_alpha, fully_random_citations, preferential_weight, recency_weight, fitness_weight, minimum_preferential_weight, minimum_recency_weight, minimum_fitness_weight, growth_rate, num_cycles, same_year_proportion, neighborhood_sample, output_file, auxiliary_information_file, log_file, num_processors, log_level);
+    ABM* abm = new ABM(edgelist, nodelist, out_degree_bag, recency_probabilities, planted_nodes, fully_random_citations, preferential_weight, fitness_weight, minimum_preferential_weight, minimum_fitness_weight, growth_rate, num_cycles, same_year_proportion, neighborhood_sample, output_file, auxiliary_information_file, log_file, num_processors, log_level);
     abm->main();
     delete abm;
 }

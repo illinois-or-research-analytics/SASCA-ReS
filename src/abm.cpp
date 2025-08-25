@@ -92,6 +92,21 @@ void ABM::ReadOutDegreeBag() {
 }
 
 
+std::unordered_map<int, double> ABM::GetBinnedRecencyProbabilities(Graph* graph, int current_year) {
+    std::unordered_map<int, double> binned_recency_probabilities;
+    double binned_recency_sum = 0;
+    for(const auto& [year_diff, count] : this->recency_counts_map) {
+        int current_bin_index = this->GetBinIndex(year_diff);
+        binned_recency_probabilities[current_bin_index] += count;
+        binned_recency_sum += count;
+    }
+    for(const auto& recency_pair : binned_recency_probabilities) {
+        binned_recency_probabilities[recency_pair.first] /= binned_recency_sum;
+    }
+    return binned_recency_probabilities;
+}
+
+
 void ABM::ReadRecencyProbabilities() {
     char delimiter = ',';
     std::ifstream recency_probabilities_stream(this->recency_probabilities);
@@ -164,45 +179,6 @@ void ABM::FillFitnessArr(Graph* graph, const std::unordered_map<int, int>& conti
     }
 }
 
-void ABM::FillRecencyArr(Graph* graph, const std::unordered_map<int, int>& continuous_node_mapping, int current_year, double* recency_arr) {
-    std::unordered_map<int, int> year_count;
-    std::map<int, double> current_recency_probabilities_map;
-    double unique_year_sum = 0.0;
-    for(auto const& node : graph->GetNodeSet()) {
-        int current_published_year = graph->GetIntAttribute("year", node);
-        int year_diff = current_year - current_published_year;
-        if(!year_count.contains(year_diff)) {
-            /* unique_year_sum += this->recency_probabilities_map[year_diff]; */
-            unique_year_sum += this->recency_counts_map[year_diff];
-            current_recency_probabilities_map[year_diff] = this->recency_counts_map[year_diff];
-        }
-        year_count[year_diff] ++;
-    }
-
-    for(auto const& [year_diff, current_year_count] : year_count) {
-        current_recency_probabilities_map[year_diff] /= unique_year_sum;
-    }
-
-    /* #pragma omp parallel for */
-    /* for(size_t i = 0; i < graph->GetNodeSet().size(); i ++) { */
-    for(auto const& node_id : graph->GetNodeSet()) {
-        int continuous_index = continuous_node_mapping.at(node_id);
-        int current_published_year = graph->GetIntAttribute("year", node_id);
-        int year_diff = current_year - current_published_year;
-        recency_arr[continuous_index] = (double)current_recency_probabilities_map[year_diff] / year_count[year_diff];
-    }
-
-    double sum = 0;
-    #pragma omp parallel for reduction(+:sum)
-    for(size_t i = 0; i < graph->GetNodeSet().size(); i ++) {
-        sum += recency_arr[i];
-    }
-    #pragma omp parallel for
-    for(size_t i = 0; i < graph->GetNodeSet().size(); i ++) {
-        recency_arr[i] /= sum;
-    }
-}
-
 int ABM::GetMaxYear(Graph* graph) {
     int max_year = -1;
     bool is_first = true;
@@ -242,85 +218,24 @@ int ABM::GetFinalGraphSize(Graph* graph) {
     }
     return current_graph_size;
 }
-void ABM::PopulateAlphaArr(double* alpha_arr, int len) {
+
+void ABM::PopulateWeightArrs(double* pa_weight_arr, double* fit_weight_arr, int len) {
     pcg_extras::seed_seq_from<std::random_device> rand_dev;
     pcg32 generator(rand_dev);
-
-    if(this->alpha < 0) {
-        for(int i = 0; i < len; i ++) {
-            double alpha_uniform = this->alpha_uniform_distribution(generator);
-            alpha_uniform = std::round(alpha_uniform * 1000.0) / 1000.0;
-            alpha_arr[i] = alpha_uniform;
-        }
-    } else if(this->minimum_alpha > 0) {
-        for(int i = 0; i < len; i ++) {
-            std::uniform_real_distribution<double> minimum_alpha_uniform_distribution{minimum_alpha, 1};
-            double alpha_uniform = minimum_alpha_uniform_distribution(generator);
-            alpha_arr[i] = alpha_uniform;
-        }
-    } else {
-        for(int i = 0; i < len; i ++) {
-            alpha_arr[i] = this->alpha;
-        }
-    }
-}
-
-void ABM::PopulateWeightArrs(double* pa_weight_arr, double* rec_weight_arr, double* fit_weight_arr, int len) {
-    pcg_extras::seed_seq_from<std::random_device> rand_dev;
-    pcg32 generator(rand_dev);
-    if(this->preferential_weight != -1 && this->recency_weight != -1 && this->fitness_weight != -1) {
+    if(this->preferential_weight != -1 &&  this->fitness_weight != -1) {
         for(int i = 0; i < len; i ++) {
             double pa_uniform = this->preferential_weight;
-            double rec_uniform = this->recency_weight;
             double fit_uniform = this->fitness_weight;
-            double sum = pa_uniform + rec_uniform + fit_uniform;
+            double sum = pa_uniform + fit_uniform;
             pa_weight_arr[i] = (double)pa_uniform / sum;
-            rec_weight_arr[i] = (double)rec_uniform / sum;
             fit_weight_arr[i] = (double)fit_uniform / sum;
-        }
-    } else if (this->minimum_preferential_weight > 0) {
-        std::uniform_real_distribution<double> minimum_weights_uniform_distribution{this->minimum_preferential_weight, 1};
-        for(int i = 0; i < len; i ++) {
-            double pa_uniform = minimum_weights_uniform_distribution(generator);
-            double rec_uniform = this->weights_uniform_distribution(generator);
-            double fit_uniform = this->weights_uniform_distribution(generator);
-            double sum = (rec_uniform + fit_uniform);
-            pa_weight_arr[i] = pa_uniform;
-            rec_weight_arr[i] = (1 - pa_uniform) * (double)rec_uniform / sum;
-            fit_weight_arr[i] = (1 - pa_uniform) * (double)fit_uniform / sum;
-        }
-    } else if (this->minimum_recency_weight > 0) {
-        std::uniform_real_distribution<double> minimum_weights_uniform_distribution{this->minimum_recency_weight, 1};
-        for(int i = 0; i < len; i ++) {
-            double pa_uniform = this->weights_uniform_distribution(generator);
-            double rec_uniform = minimum_weights_uniform_distribution(generator);
-            double fit_uniform = this->weights_uniform_distribution(generator);
-            double sum = (pa_uniform + fit_uniform);
-            pa_weight_arr[i] = (1 - rec_uniform) * (double)pa_uniform / sum;
-            rec_weight_arr[i] = rec_uniform;
-            fit_weight_arr[i] = (1 - rec_uniform) * (double)fit_uniform / sum;
-        }
-    } else if (this->minimum_fitness_weight > 0) {
-        std::uniform_real_distribution<double> minimum_weights_uniform_distribution{this->minimum_fitness_weight, 1};
-        for(int i = 0; i < len; i ++) {
-            double pa_uniform = this->weights_uniform_distribution(generator);
-            double rec_uniform = this->weights_uniform_distribution(generator);
-            double fit_uniform = minimum_weights_uniform_distribution(generator);
-            double sum = (pa_uniform + rec_uniform);
-            pa_weight_arr[i] = (1 - fit_uniform) * (double)pa_uniform / sum;
-            rec_weight_arr[i] = (1 - fit_uniform) * (double)rec_uniform / sum;
-            fit_weight_arr[i] = fit_uniform;
         }
     } else {
         // MARK:is this why?
         for(int i = 0; i < len; i ++) {
             std::uniform_real_distribution<double> first_weights_uniform_distribution{0, 1};
             double first_uniform = first_weights_uniform_distribution(generator);
-            std::uniform_real_distribution<double> second_weights_uniform_distribution{0, 1 - first_uniform};
-            double second_uniform = second_weights_uniform_distribution(generator);
-            double third_uniform = 1 - first_uniform - second_uniform;
-            /* double sum = pa_uniform + rec_uniform + fit_uniform; */
-            std::vector<double> current_weight_array{first_uniform, second_uniform, third_uniform};
+            std::vector<double> current_weight_array{first_uniform, 1 - first_uniform};
             std::ranges::shuffle(current_weight_array, generator);
             std::ranges::shuffle(current_weight_array, generator);
             std::ranges::shuffle(current_weight_array, generator);
@@ -328,8 +243,7 @@ void ABM::PopulateWeightArrs(double* pa_weight_arr, double* rec_weight_arr, doub
                 current_weight_array[j] = std::round(current_weight_array[j] * 1000.0) / 1000.0;
             }
             pa_weight_arr[i] = current_weight_array[0];
-            rec_weight_arr[i] = current_weight_array[1];
-            fit_weight_arr[i] = current_weight_array[2];
+            fit_weight_arr[i] = current_weight_array[1];
         }
     }
 }
@@ -344,19 +258,11 @@ void ABM::PopulateOutDegreeArr(int* out_degree_arr, int len) {
     }
 }
 
-void ABM::UpdateGraphAttributesWeights(Graph* graph, int next_node_id, double* pa_weight_arr, double* rec_weight_arr, double* fit_weight_arr, int len) {
+void ABM::UpdateGraphAttributesWeights(Graph* graph, int next_node_id, double* pa_weight_arr, double* fit_weight_arr, int len) {
     for(int i = 0; i < len; i ++) {
         int current_node_id = next_node_id + i;
         graph->SetDoubleAttribute("preferential_attachment_weight", current_node_id, pa_weight_arr[i]);
-        graph->SetDoubleAttribute("recency_weight", current_node_id, rec_weight_arr[i]);
         graph->SetDoubleAttribute("fitness_weight", current_node_id, fit_weight_arr[i]);
-    }
-}
-
-void ABM::UpdateGraphAttributesAlphas(Graph* graph, int next_node_id, double* alpha_arr, int len) {
-    for(int i = 0; i < len; i ++) {
-        int current_node_id = next_node_id + i;
-        graph->SetDoubleAttribute("alpha", current_node_id, alpha_arr[i]);
     }
 }
 
@@ -453,7 +359,7 @@ int ABM::MakeSameYearCitations(const std::set<int>& same_year_source_nodes, int 
     return 1;
 }
 
-int ABM::MakeUniformRandomCitations(Graph* graph, const std::unordered_map<int, int>& reverse_continuous_node_mapping, std::vector<int>& generator_nodes, int* citations, int num_cited_so_far, int num_citations) {
+int ABM::MakeUniformRandomCitationsFromGraph(Graph* graph, const std::unordered_map<int, int>& reverse_continuous_node_mapping, std::vector<int>& generator_nodes, int* citations, int num_cited_so_far, int num_citations) {
     if (num_citations <= 0) {
         return 0;
     }
@@ -486,7 +392,37 @@ int ABM::MakeUniformRandomCitations(Graph* graph, const std::unordered_map<int, 
     return actual_num_cited;
 }
 
-int ABM::MakeCitations(Graph* graph, const std::unordered_map<int, int>& continuous_node_mapping, int current_year, const std::vector<int>& candidate_nodes, int* citations, double* pa_arr, double* recency_arr, double* fit_arr, double pa_weight, double rec_weight, double fit_weight, int current_graph_size, int num_citations) {
+int ABM::MakeUniformRandomCitations(Graph* graph, const std::unordered_map<int, int>& continuous_node_mapping, int current_year, const std::vector<int>& candidate_nodes, int* citations, int current_graph_size, int num_citations) {
+    if (num_citations <= 0) {
+        return 0;
+    }
+    if (candidate_nodes.size() <= 0) {
+        return 0;
+    }
+
+    int actual_num_cited = num_citations;
+    if (candidate_nodes.size() < (size_t)num_citations) {
+        actual_num_cited = candidate_nodes.size();
+    }
+
+    pcg_extras::seed_seq_from<std::random_device> rand_dev;
+    pcg32 generator(rand_dev);
+    std::uniform_int_distribution<int> int_uniform_distribution(0, (int)(candidate_nodes.size() - 1));
+    std::set<int> selected;
+    int current_citation_index = 0;
+    while(selected.size() != actual_num_cited) {
+        int current_selected_index = int_uniform_distribution(generator);
+        int current_node = candidate_nodes.at(current_selected_index);
+        if (!selected.contains(current_node)) {
+            citations[current_citation_index] = current_node;
+            selected.insert(current_node);
+            current_citation_index ++;
+        }
+    }
+    return actual_num_cited;
+}
+
+int ABM::MakeCitations(Graph* graph, const std::unordered_map<int, int>& continuous_node_mapping, int current_year, const std::vector<int>& candidate_nodes, int* citations, double* pa_arr, double* fit_arr, double pa_weight, double fit_weight, int current_graph_size, int num_citations) {
     if (num_citations <= 0) {
         return 0;
     }
@@ -547,33 +483,26 @@ int ABM::MakeCitations(Graph* graph, const std::unordered_map<int, int>& continu
     }
     */
     // /*
-    Eigen::MatrixXd current_scores(candidate_nodes.size(), 3);
-    Eigen::Vector3d current_weights(pa_weight, rec_weight, fit_weight);
+    Eigen::MatrixXd current_scores(candidate_nodes.size(), 2);
+    Eigen::Vector2d current_weights(pa_weight, fit_weight);
     double pa_sum = 0.0;
-    double rec_sum = 0.0;
     double fit_sum = 0.0;
     std::vector<double> raw_pa_arr;
-    std::vector<double> raw_rec_arr;
     std::vector<double> raw_fit_arr;
     raw_pa_arr.reserve(candidate_nodes.size());
-    raw_rec_arr.reserve(candidate_nodes.size());
     raw_fit_arr.reserve(candidate_nodes.size());
     for(size_t i = 0; i < candidate_nodes.size(); i ++) {
         int continuous_node_id = continuous_node_mapping.at(candidate_nodes.at(i));
         double current_pa = pa_arr[continuous_node_id];
-        double current_rec = recency_arr[continuous_node_id];
         double current_fit = fit_arr[continuous_node_id];
         pa_sum += current_pa;
-        rec_sum += current_rec;
         fit_sum += current_fit;
         raw_pa_arr.push_back(current_pa);
-        raw_rec_arr.push_back(current_rec);
         raw_fit_arr.push_back(current_fit);
     }
     for(size_t i = 0; i < candidate_nodes.size(); i ++) {
         current_scores(i, 0) = raw_pa_arr[i] / pa_sum;
-        current_scores(i, 1) = raw_rec_arr[i] / rec_sum;
-        current_scores(i, 2) = raw_fit_arr[i] / fit_sum;
+        current_scores(i, 1) = raw_fit_arr[i] / fit_sum;
     }
     Eigen::MatrixXd current_weighted_scores = current_scores * current_weights;
     auto current_wrs_uniform = [&] () {return wrs_uniform_distribution(generator);};
@@ -611,10 +540,126 @@ std::vector<int> ABM::GetGeneratorNodes(Graph* graph, const std::unordered_map<i
     return generator_nodes;
 }
 
-std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoHopNeighborhood(Graph* graph, int current_year, const std::vector<int>& generator_nodes, const std::unordered_map<int, int>& reverse_continuous_node_mapping, int num_hops) {
-    std::unordered_map<int, std::vector<int>> one_and_two_hop_neighborhood_map;
-    one_and_two_hop_neighborhood_map[1] = std::vector<int>();
-    one_and_two_hop_neighborhood_map[2] = std::vector<int>();
+std::unordered_map<int, int> ABM::BinOutdegrees(const std::unordered_map<int, std::vector<int>>& binned_neighborhood, int total_outdegree, std::unordered_map<int, double> binned_recency_probabilities) {
+    std::unordered_map<int, int> target_outdegree_per_bin_map;
+    int remaining_outdegree = total_outdegree;
+    for(const auto& [bin_index, bin_probability] : binned_recency_probabilities) {
+        int current_bin_outdegree = std::ceil(total_outdegree * bin_probability);
+        current_bin_outdegree = std::min(current_bin_outdegree, remaining_outdegree);
+        target_outdegree_per_bin_map[bin_index] = current_bin_outdegree;
+        remaining_outdegree -= current_bin_outdegree;
+        if (remaining_outdegree == 0) {
+            break;
+        }
+    }
+    // MARK: DEBUG
+    int outdegree_per_bin_sum = 0;
+    for(const auto& current_bin : target_outdegree_per_bin_map) {
+        int bin_index = current_bin.first;
+        outdegree_per_bin_sum += target_outdegree_per_bin_map[bin_index];
+    }
+    if (outdegree_per_bin_sum != total_outdegree) {
+        std::cerr << "outdegree per bin sum doesn't match total outdegree" << std::endl;
+        std::cerr << "total outdgree is " << std::to_string(total_outdegree) << std::endl;
+        for(const auto& current_bin : target_outdegree_per_bin_map) {
+            int bin_index = current_bin.first;
+            std::cerr << "bin: " << std::to_string(bin_index) << " has " << std::to_string(target_outdegree_per_bin_map[bin_index]) << std::endl;
+        }
+        exit(-1);
+    }
+    std::unordered_map<int, int> uncited_nodes;
+    for(const auto& [bin_index, bin_nodes_vec] : binned_neighborhood) {
+        if (bin_nodes_vec.size() < target_outdegree_per_bin_map[bin_index]) {
+            uncited_nodes[bin_index] = target_outdegree_per_bin_map[bin_index] - bin_nodes_vec.size();
+            target_outdegree_per_bin_map[bin_index] = bin_nodes_vec.size();
+        }
+    }
+
+    // MARK: DEBUG
+    outdegree_per_bin_sum = 0;
+    for(const auto& current_bin : target_outdegree_per_bin_map) {
+        int bin_index = current_bin.first;
+        outdegree_per_bin_sum += target_outdegree_per_bin_map[bin_index];
+    }
+    int uncited_nodes_sum = 0;
+    for(const auto& current_bin : target_outdegree_per_bin_map) {
+        int bin_index = current_bin.first;
+        uncited_nodes_sum += uncited_nodes[bin_index];
+    }
+    if (outdegree_per_bin_sum + uncited_nodes_sum != total_outdegree) {
+        std::cerr << "target outdegree per bin sum + uncited nodes sum doesn't match total outdegree" << std::endl;
+        std::cerr << "total outdgree is " << std::to_string(total_outdegree) << std::endl;
+        for(const auto& current_bin : target_outdegree_per_bin_map) {
+            int bin_index = current_bin.first;
+            std::cerr << "bin: " << std::to_string(bin_index) << " has " << std::to_string(target_outdegree_per_bin_map[bin_index]) << "target outdegree" << std::endl;
+        }
+        for(const auto& current_bin : target_outdegree_per_bin_map) {
+            int bin_index = current_bin.first;
+            std::cerr << "bin: " << std::to_string(bin_index) << " has " << std::to_string(uncited_nodes[bin_index]) << "uncited nodes" << std::endl;
+        }
+        exit(-1);
+    }
+
+    for(const auto& [bin_index, num_uncited_nodes] : uncited_nodes) {
+        for(int i = bin_index - 1; i >= 0 && uncited_nodes[bin_index] > 0; i --) {
+            if (binned_neighborhood.at(i).size() > target_outdegree_per_bin_map[i]) {
+                if (binned_neighborhood.at(i).size() >= target_outdegree_per_bin_map[i] + uncited_nodes[bin_index]) {
+                    uncited_nodes[bin_index] = 0;
+                    target_outdegree_per_bin_map[i] += uncited_nodes[bin_index];
+                } else {
+                    int cited_from_current_bin = binned_neighborhood.at(i).size() - target_outdegree_per_bin_map[i];
+                    uncited_nodes[bin_index] -= cited_from_current_bin;
+                    target_outdegree_per_bin_map[i] = binned_neighborhood.at(i).size();
+                }
+            }
+        }
+        for(int i = bin_index + 1; i < target_outdegree_per_bin_map.size() && uncited_nodes[bin_index] > 0; i ++) {
+            if (binned_neighborhood.at(i).size() > target_outdegree_per_bin_map[i]) {
+                if (binned_neighborhood.at(i).size() >= target_outdegree_per_bin_map[i] + uncited_nodes[bin_index]) {
+                    uncited_nodes[bin_index] = 0;
+                    target_outdegree_per_bin_map[i] += uncited_nodes[bin_index];
+                } else {
+                    int cited_from_current_bin = binned_neighborhood.at(i).size() - target_outdegree_per_bin_map[i];
+                    uncited_nodes[bin_index] -= cited_from_current_bin;
+                    target_outdegree_per_bin_map[i]  = binned_neighborhood.at(i).size();
+                }
+            }
+        }
+    }
+    return target_outdegree_per_bin_map;
+}
+
+int ABM::GetBinIndex(int year_diff) {
+    if(year_diff <= 5) {
+        return 0;
+    } else if (year_diff <= 10) {
+        return 1;
+    } else if (year_diff <= 20) {
+        return 2;
+    }
+    return 3;
+}
+
+int ABM::GetBinIndex(Graph* graph, int current_node, int current_year) {
+    int current_diff = current_year - graph->GetIntAttribute("year", current_node);
+    return this->GetBinIndex(current_diff);
+}
+
+std::unordered_map<int, std::vector<int>> ABM::BinNeighborhood(Graph* graph, int current_year, std::vector<int> n_hop_list) {
+    std::unordered_map<int, std::vector<int>> binned_neighborhood;
+    for(int i = 0; i < 4; i ++) {
+        binned_neighborhood[i] = {};
+    }
+    for(size_t i = 0; i < n_hop_list.size(); i ++) {
+        int current_node = n_hop_list[i];
+        int current_bin = GetBinIndex(graph, current_node, current_year);
+        binned_neighborhood[current_bin].push_back(current_node);
+    }
+    return binned_neighborhood;
+}
+
+std::vector<int> ABM::GetNHopNeighborhood(Graph* graph, int current_year, const std::vector<int>& generator_nodes, const std::unordered_map<int, int>& reverse_continuous_node_mapping, int num_hops) {
+    std::vector<int> n_hop_neighborhood;
     if (this->neighborhood_sample == -1) {
         std::set<int> visited;
         for(size_t i = 0; i < generator_nodes.size(); i ++) {
@@ -627,7 +672,9 @@ std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoHopNeighborhood(Graph
                 to_visit.pop();
                 int current_node = current_pair.first;
                 int current_distance = current_pair.second;
-                one_and_two_hop_neighborhood_map[current_distance].push_back(current_node);
+                if (current_distance > 0) {
+                    n_hop_neighborhood.push_back(current_node);
+                }
                 if (current_distance < num_hops) {
                     if(graph->GetOutDegree(current_node) > 0) {
                         for(auto const& outgoing_neighbor : graph->GetForwardAdjMap().at(current_node)) {
@@ -649,8 +696,8 @@ std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoHopNeighborhood(Graph
             }
         }
     } else {
-        one_and_two_hop_neighborhood_map[1].reserve(this->neighborhood_sample);
-        one_and_two_hop_neighborhood_map[2].reserve(this->neighborhood_sample);
+        // NOTE: only supports randomly sampling from up to 2-hop
+        n_hop_neighborhood.reserve(this->neighborhood_sample);
         size_t max_neighborhood_size = this->neighborhood_sample;
         std::set<int> visited;
         pcg_extras::seed_seq_from<std::random_device> rand_dev;
@@ -683,7 +730,7 @@ std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoHopNeighborhood(Graph
                 current_one_hop_neighborhood = sampled_one_hop_neighborhood;
             }
             // until here should be fast
-            std::copy(current_one_hop_neighborhood.begin(), current_one_hop_neighborhood.end(), std::back_inserter(one_and_two_hop_neighborhood_map[1]));
+            std::copy(current_one_hop_neighborhood.begin(), current_one_hop_neighborhood.end(), std::back_inserter(n_hop_neighborhood));
             std::shuffle(current_one_hop_neighborhood.begin(), current_one_hop_neighborhood.end(), generator);
             for(size_t j = 0; j < current_one_hop_neighborhood.size(); j ++) {
                 int current_two_hop_size = 0;
@@ -696,14 +743,12 @@ std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoHopNeighborhood(Graph
                     current_two_hop_size += graph->GetBackwardAdjMap().at(current_one_hop_neighborhood[j]).size();
                 }
                 // worst case for one node we might only grab the outgoing edges
-                if (one_and_two_hop_neighborhood_map[2].size() + current_two_hop_size < max_neighborhood_size) {
+                if (n_hop_neighborhood.size() + current_two_hop_size < max_neighborhood_size) {
                     if (graph->GetOutDegree(current_one_hop_neighborhood[j]) > 0) {
                         for(auto const& outgoing_neighbor : graph->GetForwardAdjMap().at(current_one_hop_neighborhood[j])) {
                             if (!visited.contains(outgoing_neighbor)) {
                                 visited.insert(outgoing_neighbor);
-                                if (current_year - graph->GetIntAttribute("year", outgoing_neighbor) <= this->recency_limit) {
-                                    one_and_two_hop_neighborhood_map[2].push_back(outgoing_neighbor);
-                                }
+                                n_hop_neighborhood.push_back(outgoing_neighbor);
                             }
                         }
                     }
@@ -711,9 +756,7 @@ std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoHopNeighborhood(Graph
                         for(auto const& incoming_neighbor : graph->GetBackwardAdjMap().at(current_one_hop_neighborhood[j])) {
                             if (!visited.contains(incoming_neighbor)) {
                                 visited.insert(incoming_neighbor);
-                                if (current_year - graph->GetIntAttribute("year", incoming_neighbor) <= this->recency_limit) {
-                                    one_and_two_hop_neighborhood_map[2].push_back(incoming_neighbor);
-                                }
+                                n_hop_neighborhood.push_back(incoming_neighbor);
                             }
                         }
                     }
@@ -722,36 +765,27 @@ std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoHopNeighborhood(Graph
                     if (graph->GetOutDegree(current_one_hop_neighborhood[j]) > 0) {
                         for(auto const& outgoing_neighbor : graph->GetForwardAdjMap().at(current_one_hop_neighborhood[j])) {
                             if (!visited.contains(outgoing_neighbor)) {
-                                if (current_year - graph->GetIntAttribute("year", outgoing_neighbor) <= this->recency_limit) {
-                                    to_be_sampled_neighborhood.push_back(outgoing_neighbor);
-                                }
+                                to_be_sampled_neighborhood.push_back(outgoing_neighbor);
                             }
                         }
                     }
                     if (graph->GetInDegree(current_one_hop_neighborhood[j]) > 0) {
                         for(auto const& incoming_neighbor : graph->GetBackwardAdjMap().at(current_one_hop_neighborhood[j])) {
                             if (!visited.contains(incoming_neighbor)) {
-                                if (current_year - graph->GetIntAttribute("year", incoming_neighbor) <= this->recency_limit) {
-                                    to_be_sampled_neighborhood.push_back(incoming_neighbor);
-                                }
+                                to_be_sampled_neighborhood.push_back(incoming_neighbor);
                             }
                         }
                     }
-                    std::vector<int> sampled_two_hop_neighborhood;
-                    std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(sampled_two_hop_neighborhood), max_neighborhood_size - one_and_two_hop_neighborhood_map[2].size(), generator);
-                    for(size_t k = 0; k < sampled_two_hop_neighborhood.size(); k ++) {
-                        visited.insert(sampled_two_hop_neighborhood[k]);
-                        one_and_two_hop_neighborhood_map[2].push_back(sampled_two_hop_neighborhood[k]);
-                    }
-                    if (one_and_two_hop_neighborhood_map[2].size() == max_neighborhood_size) {
-                        return one_and_two_hop_neighborhood_map;
+                    std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(n_hop_neighborhood), max_neighborhood_size - n_hop_neighborhood.size(), generator);
+                    if (n_hop_neighborhood.size() == max_neighborhood_size) {
+                        return n_hop_neighborhood;
                     }
                 }
             }
         }
     }
 
-    return one_and_two_hop_neighborhood_map;
+    return n_hop_neighborhood;
 }
 
 void ABM::LogTime(int current_year, std::string label, int time_elapsed) {
@@ -784,35 +818,6 @@ void ABM::WriteTimingFile(int start_year, int end_year) {
     }
 }
 
-std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoHopNeighborhoodFromMatrix(Graph* graph, int current_graph_size, const Eigen::SparseMatrix<int, 0, int>& two_hop_matrix, std::vector<int> generator_nodes, const std::unordered_map<int, int>& continuous_node_mapping, const std::unordered_map<int, int>& reverse_continuous_node_mapping) {
-    std::unordered_map<int, std::vector<int>> one_and_two_hop_neighborhood_map;
-    for(size_t i = 0; i < generator_nodes.size(); i ++) {
-        // find 1-hop first
-        if (graph->GetOutDegree(generator_nodes.at(i)) > 0) {
-            for(auto const& outgoing_neighbor : graph->GetForwardAdjMap().at(generator_nodes.at(i))) {
-                one_and_two_hop_neighborhood_map[1].push_back(outgoing_neighbor);
-            }
-        }
-        if (graph->GetInDegree(generator_nodes.at(i)) > 0) {
-            for(auto const& incoming_neighbor : graph->GetForwardAdjMap().at(generator_nodes.at(i))) {
-                one_and_two_hop_neighborhood_map[1].push_back(incoming_neighbor);
-            }
-        }
-        // find 2-hop next
-        int row_id = continuous_node_mapping.at(generator_nodes.at(i));
-        /* for(int col = 0; col < current_graph_size; col ++) { */
-        /*     if (two_hop_matrix(row_id, col) > 0) { */
-        /*         int col_node_id = reverse_continuous_node_mapping.at(col); */
-        /*         one_and_two_hop_neighborhood_map[2].push_back(col_node_id); */
-        /*     } */
-        /* } */
-        for(Eigen::SparseMatrix<int, 0, int>::InnerIterator it(two_hop_matrix, row_id); it; ++it) {
-            one_and_two_hop_neighborhood_map[2].push_back(it.value());
-        }
-    }
-    return one_and_two_hop_neighborhood_map;
-}
-
 int ABM::main() {
     std::cerr << "running with asserts" << std::endl;
     Graph* graph = new Graph(this->edgelist, this->nodelist);
@@ -838,19 +843,15 @@ int ABM::main() {
     int* fitness_arr = new int[final_graph_size];
     double* pa_arr = new double[final_graph_size];
     double* fit_arr = new double[final_graph_size];
-    double* recency_arr = new double[final_graph_size];
     double* random_weight_arr = new double[final_graph_size];
     double* current_score_arr = new double[final_graph_size];
 
     // the first new agent node has index 0 but is actually index initial_graph_size in the continuous mapping
     double* pa_weight_arr = new double[final_graph_size - initial_graph_size];
-    double* rec_weight_arr = new double[final_graph_size - initial_graph_size];
     double* fit_weight_arr = new double[final_graph_size - initial_graph_size];
-    double* alpha_arr = new double[final_graph_size - initial_graph_size];
     int* out_degree_arr = new int[final_graph_size - initial_graph_size];
 
-    this->PopulateWeightArrs(pa_weight_arr, rec_weight_arr, fit_weight_arr, final_graph_size - initial_graph_size);
-    this->PopulateAlphaArr(alpha_arr, final_graph_size - initial_graph_size);
+    this->PopulateWeightArrs(pa_weight_arr, fit_weight_arr, final_graph_size - initial_graph_size);
     this->PopulateOutDegreeArr(out_degree_arr, final_graph_size - initial_graph_size);
 
     std::vector<int> new_nodes_vec;
@@ -875,22 +876,12 @@ int ABM::main() {
         this->LogTime(current_year, "Fill in-degree array");
         this->FillFitnessArr(graph, continuous_node_mapping, current_year, fitness_arr);
         this->LogTime(current_year, "Fill fitness array");
-        this->FillRecencyArr(graph, continuous_node_mapping, current_year, recency_arr);
-        this->LogTime(current_year, "Fill recency array");
-        /* this->CalculateTanhScores(tanh_cached_results, in_degree_arr, pa_arr, current_graph_size); */
+        std::unordered_map<int, double> binned_recency_probabilities = GetBinnedRecencyProbabilities(graph, current_year);
         this->CalculateExpScores(exp_cached_results, in_degree_arr, pa_arr, current_graph_size);
         this->LogTime(current_year, "Process in-degree array");
         /* this->CalculateTanhScores(tanh_cached_results, fitness_arr, fit_arr, current_graph_size); */
         this->CalculateExpScores(exp_cached_results, fitness_arr, fit_arr, current_graph_size);
         this->LogTime(current_year, "Process fitness array");
-        // START DEBUG
-        /* std::cerr << "node_id,pa,rec,fit\n"; */
-        /* for(int i = 0; i < current_graph_size; i ++) { */
-        /*     int current_original_node_id = reverse_continuous_node_mapping.at(i); */
-        /*     std::cerr << std::setprecision(15) << current_original_node_id << "," << pa_arr[i] << "," <<  recency_arr[i] << "," << fit_arr[i] <<  "\n"; */
-        /* } */
-        /* return 1; */
-        // END DEBUG
 
         /* initialize new nodes */
         int num_new_nodes = std::ceil(current_graph_size * this->growth_rate);
@@ -913,7 +904,10 @@ int ABM::main() {
             this->UpdateGraphAttributesGeneratorNodes(graph, new_node, generator_nodes);
         }
         this->LogTime(current_year, "Pick generator nodes");
-        std::vector<std::pair<int, int>> sampled_neighborhood_sizes_map(new_nodes_vec.size());
+        std::vector<int> sampled_neighborhood_sizes_map(new_nodes_vec.size());
+        std::vector<int> fully_random_citations_map(new_nodes_vec.size());
+        std::vector<std::vector<int>> sampled_binned_neighborhood_sizes_map(new_nodes_vec.size());
+        std::vector<std::vector<int>> sampled_binned_outdegrees_map(new_nodes_vec.size());
 
         std::vector<std::pair<std::string, int>> parallel_stage_time_vec;
         /* #pragma omp parallel for reduction(custom_merge_vec_int: new_edges_vec) reduction(merge_str_int_pair_vecs: parallel_stage_time_vec) */
@@ -929,29 +923,42 @@ int ABM::main() {
             int new_node = new_nodes_vec[i];
             int weight_arr_index = continuous_node_mapping[new_node] - initial_graph_size;
             double pa_weight = pa_weight_arr[weight_arr_index];
-            double rec_weight = rec_weight_arr[weight_arr_index];
             double fit_weight = fit_weight_arr[weight_arr_index];
-            double alpha = alpha_arr[weight_arr_index];
             std::vector<int> generator_nodes = this->GetGraphAttributesGeneratorNodes(graph, new_node);
-            std::unordered_map<int, std::vector<int>> one_and_two_hop_neighborhood_map = this->GetOneAndTwoHopNeighborhood(graph, current_year, generator_nodes, reverse_continuous_node_mapping, 2);
-            sampled_neighborhood_sizes_map[i] = {one_and_two_hop_neighborhood_map[1].size(), one_and_two_hop_neighborhood_map[2].size()};
-            local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "retrieve one and two hop neighborhoods");
+            int num_hops = 2;
+            std::vector<int> n_hop_list = this->GetNHopNeighborhood(graph, current_year, generator_nodes, reverse_continuous_node_mapping, num_hops);
+            int neighborhood_size = n_hop_list.size();
+            sampled_neighborhood_sizes_map[i] = neighborhood_size;
+            local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "retrieve neighborhood");
+            std::unordered_map<int, std::vector<int>> binned_neighborhood = this->BinNeighborhood(graph, current_year, n_hop_list);
+            /* for(size_t j = 0; j < 4; j ++) { */
+            for(const auto& current_bin : binned_neighborhood) {
+                int current_bin_index = current_bin.first;
+                /* int current_binned_neighborhood_size = binned_neighborhood[j].size(); */
+                int current_binned_neighborhood_size = binned_neighborhood[current_bin_index].size();
+                sampled_binned_neighborhood_sizes_map[i].push_back(current_binned_neighborhood_size);
+            }
+            local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "bin neighborhood");
+
             int num_generator_node_citation = generator_nodes.size(); // should be 1 for now
             int same_year_citation = same_year_source_nodes.count(i); // could be 0 or 1
             int num_fully_random_cited_reserved = std::floor(this->fully_random_citations * out_degree_arr[weight_arr_index]); // e.g., 5% of out-degree. some small number
 
-            // now the number of things to cite from distance 1 is the remaining citations * alpha. Call this remaining citations R for later.
-            // unless distance 1 neighborhood is too small
-            int num_citations_inside = std::ceil((out_degree_arr[weight_arr_index] - num_generator_node_citation - same_year_citation - num_fully_random_cited_reserved) * alpha);
-            num_citations_inside = std::min(num_citations_inside, (int)one_and_two_hop_neighborhood_map[1].size());
+            int num_citations_neighborhood = out_degree_arr[weight_arr_index] - num_generator_node_citation - same_year_citation - num_fully_random_cited_reserved;
+            std::unordered_map<int, int> outdegree_per_bin_map = this->BinOutdegrees(binned_neighborhood, num_citations_neighborhood, binned_recency_probabilities);
+            /* for(size_t j = 0; j < 4; j ++) { */
+            for(const auto& current_bin : binned_neighborhood) {
+                int current_bin_index = current_bin.first;
+                /* int current_bin_outdegree = outdegree_per_bin_map[j]; */
+                int current_bin_outdegree = outdegree_per_bin_map[current_bin_index];
+                sampled_binned_outdegrees_map[i].push_back(current_bin_outdegree);
+            }
 
-            // now the number of things to cite from distance 2 is the remaining citations
-            // unless distance 2 neighborhood is too small
-            int num_citations_outside = out_degree_arr[weight_arr_index] - num_generator_node_citation - same_year_citation - num_fully_random_cited_reserved - num_citations_inside;
-            num_citations_outside = std::min(num_citations_outside, (int)one_and_two_hop_neighborhood_map[2].size());
-
-            // if it turns out that the 2-hop neighborhood (including 1 and 2) is small than R from earlier, then the leftover citations get cited randomly from the graph
-            int num_fully_random_cited = out_degree_arr[weight_arr_index] - num_generator_node_citation - same_year_citation - num_citations_inside - num_citations_outside;
+            int num_fully_random_cited = out_degree_arr[weight_arr_index] - num_generator_node_citation - same_year_citation;
+            for(const auto& current_bin : outdegree_per_bin_map) {
+                num_fully_random_cited -= current_bin.second;
+            }
+            fully_random_citations_map[i] = num_fully_random_cited;
 
             // if it turns out that the 2-hop neighborhood (including 1 and 2) is small than R from earlier, then the leftover citations get cited randomly from the graph
             int num_actually_cited = 0;
@@ -960,11 +967,16 @@ int ABM::main() {
             }
 
             local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make same year citations");
-            num_actually_cited += this->MakeCitations(graph, continuous_node_mapping, current_year, one_and_two_hop_neighborhood_map[1], citations + num_actually_cited, pa_arr, recency_arr, fit_arr, pa_weight, rec_weight, fit_weight, current_graph_size, num_citations_inside);
-            local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make 1-hop citations");
-            num_actually_cited += this->MakeCitations(graph, continuous_node_mapping, current_year, one_and_two_hop_neighborhood_map[2], citations + num_actually_cited, pa_arr, recency_arr, fit_arr, pa_weight, rec_weight, fit_weight, current_graph_size, num_citations_outside);
-            local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make 2-hop citations");
-            num_actually_cited += this->MakeUniformRandomCitations(graph, reverse_continuous_node_mapping, generator_nodes, citations, num_actually_cited, num_fully_random_cited);
+            for(const auto& current_bin : binned_neighborhood) {
+                int bin_index = current_bin.first;
+                if (bin_index < 4) {
+                    num_actually_cited += this->MakeCitations(graph, continuous_node_mapping, current_year, binned_neighborhood[bin_index], citations + num_actually_cited, pa_arr, fit_arr, pa_weight, fit_weight, current_graph_size, outdegree_per_bin_map[bin_index]);
+                } else {
+                    num_actually_cited += this->MakeUniformRandomCitations(graph, continuous_node_mapping, current_year, binned_neighborhood[bin_index], citations + num_actually_cited, current_graph_size, outdegree_per_bin_map[bin_index]);
+                }
+            }
+            local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make neighborhood citations");
+            num_actually_cited += this->MakeUniformRandomCitationsFromGraph(graph, reverse_continuous_node_mapping, generator_nodes, citations, num_actually_cited, num_fully_random_cited);
             local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make random citations");
 
             for(size_t j = 0; j < generator_nodes.size(); j ++) {
@@ -983,10 +995,10 @@ int ABM::main() {
         for(size_t i = 0; i < parallel_stage_time_vec.size(); i ++) {
             per_stage_time_map[parallel_stage_time_vec[i].first] +=  parallel_stage_time_vec[i].second;
         }
-        this->LogTime(current_year, "find one and two hop neighborhoods", per_stage_time_map["retrieve one and two hop neighborhoods"]);
+        this->LogTime(current_year, "find neighborhood", per_stage_time_map["retrieve neighborhood"]);
+        this->LogTime(current_year, "bin neighborhood", per_stage_time_map["bin neighborhood"]);
         this->LogTime(current_year, "make same year citations", per_stage_time_map["make same year citations"]);
-        this->LogTime(current_year, "make 1-hop citations", per_stage_time_map["make 1-hop citations"]);
-        this->LogTime(current_year, "make 2-hop citations", per_stage_time_map["make 2-hop citations"]);
+        this->LogTime(current_year, "make neighborhood citations", per_stage_time_map["make neighborhood citations"]);
         this->LogTime(current_year, "make random citations", per_stage_time_map["make random citations"]);
         this->LogTime(current_year, "record edges", per_stage_time_map["record edges"]);
         for(size_t i = 0; i < new_edges_vec.size(); i ++) {
@@ -998,8 +1010,16 @@ int ABM::main() {
 
         for(size_t i = 0; i < new_nodes_vec.size(); i ++) {
             int new_node = new_nodes_vec[i];
-            graph->SetIntAttribute("sampled_one_hop_neighborhood_size", new_node, sampled_neighborhood_sizes_map[i].first);
-            graph->SetIntAttribute("sampled_two_hop_neighborhood_size", new_node, sampled_neighborhood_sizes_map[i].second);
+            graph->SetIntAttribute("sampled_neighborhood_size", new_node, sampled_neighborhood_sizes_map[i]);
+            /* for(size_t j = 0; j < 4; j ++) { */
+            for(size_t current_bin_index = 0; current_bin_index < sampled_neighborhood_sizes_map.size(); current_bin_index ++) {
+                /* int current_bin_index = current_bin.first; */
+                /* graph->SetIntAttribute("bin_" + std::to_string(j + 1) + "_size", new_node, sampled_binned_neighborhood_sizes_map[i][j]); */
+                /* graph->SetIntAttribute("bin_" + std::to_string(j + 1) + "_outdegree", new_node, sampled_binned_outdegrees_map[i][j]); */
+                graph->SetIntAttribute("bin_" + std::to_string(current_bin_index + 1) + "_size", new_node, sampled_binned_neighborhood_sizes_map[i][current_bin_index]);
+                graph->SetIntAttribute("bin_" + std::to_string(current_bin_index + 1) + "_outdegree", new_node, sampled_binned_outdegrees_map[i][current_bin_index]);
+            }
+            graph->SetIntAttribute("fully_random_citations", new_node, fully_random_citations_map[i]);
         }
 
         this->LogTime(current_year, "Update graph attributes (neighborhood sizes)");
@@ -1016,8 +1036,7 @@ int ABM::main() {
     this->WriteToLogFile("finished sim", Log::info);
     graph->WriteGraph(this->output_file);
 
-    this->UpdateGraphAttributesWeights(graph, initial_next_node_id, pa_weight_arr, rec_weight_arr, fit_weight_arr, final_graph_size - initial_graph_size);
-    this->UpdateGraphAttributesAlphas(graph, initial_next_node_id, alpha_arr, final_graph_size - initial_graph_size);
+    this->UpdateGraphAttributesWeights(graph, initial_next_node_id, pa_weight_arr, fit_weight_arr, final_graph_size - initial_graph_size);
     this->UpdateGraphAttributesOutDegrees(graph, initial_next_node_id, out_degree_arr, final_graph_size - initial_graph_size);
 
     for(auto const& node_id : graph->GetNodeSet()) {
@@ -1031,13 +1050,9 @@ int ABM::main() {
     delete[] fitness_arr;
     delete[] pa_arr;
     delete[] fit_arr;
-    delete[] recency_arr;
     delete[] pa_weight_arr;
-    delete[] rec_weight_arr;
     delete[] fit_weight_arr;
-    delete[] alpha_arr;
     delete[] out_degree_arr;
-    /* delete[] citations; */
     delete[] random_weight_arr;
     delete[] current_score_arr;
 
