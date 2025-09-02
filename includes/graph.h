@@ -15,10 +15,10 @@
 
 class Graph {
     public:
-        Graph(std::string edgelist, std::string nodelist);
+        Graph(std::string edgelist, std::string nodelist, bool start_from_checkpoint);
         void AddEdge(std::pair<int, int> edge);
 
-        static inline char get_delimiter(std::string filepath) {
+        static inline char GetDelimiter(std::string filepath) {
             std::ifstream edgelist(filepath);
             std::string line;
             getline(edgelist, line);
@@ -31,6 +31,22 @@ class Graph {
             }
             throw std::invalid_argument("Could not detect filetype for " + filepath);
         }
+
+        static inline std::unordered_map<std::string, int> GetHeaderToIndexMap(char delimiter, std::string filepath) {
+            std::unordered_map<std::string, int> header_to_index_map;
+            std::ifstream input_nodelist(filepath);
+            std::string line;
+            std::getline(input_nodelist, line);
+            std::stringstream ss(line);
+            std::string current_value;
+            int index = 0;
+            while(std::getline(ss, current_value, delimiter)) {
+                header_to_index_map[current_value] = index;
+                index ++;
+            }
+            return header_to_index_map;
+        }
+
 
 
         const std::set<int>& GetNodeSet() const;
@@ -57,6 +73,7 @@ class Graph {
         std::set<int> node_set;
         std::string edgelist;
         std::string nodelist;
+        bool start_from_checkpoint;
 
     protected:
         std::unordered_map<int, std::vector<int>> forward_adj_map;
