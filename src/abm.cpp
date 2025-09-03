@@ -74,6 +74,7 @@ void ABM::ReadPlantedNodes() {
 void ABM::ReadOutDegreeBag() {
     char delimiter = ',';
     std::ifstream out_degree_bag_stream(this->out_degree_bag);
+    // MARK: error
     std::string line;
     int line_no = 0;
     while(std::getline(out_degree_bag_stream, line)) {
@@ -123,7 +124,9 @@ void ABM::ReadRecencyProbabilities() {
             int integer_year_diff = std::stoi(current_line[0]);
             /* double probability = std::stod(current_line[1]); */
             int count = std::stoi(current_line[1]);
-            this->recency_counts_map[integer_year_diff] = count;
+            if(integer_year_diff > 0) {
+                this->recency_counts_map[integer_year_diff] = count;
+            }
         }
         line_no ++;
     }
@@ -547,6 +550,9 @@ int ABM::MakeCitations(Graph* graph, const std::unordered_map<int, int>& continu
     }
     */
     // /*
+    // [pa score node i, fit score node i]   *   [ pa weight]
+    // [fit score row vector]      [ fit weight]
+    // node i final score = pa score * pa weight + fit score * fit weight
     Eigen::MatrixXd current_scores(candidate_nodes.size(), 2);
     Eigen::Vector2d current_weights(pa_weight, fit_weight);
     double pa_sum = 0.0;
@@ -622,6 +628,16 @@ std::vector<int> ABM::GetGeneratorNodes(Graph* graph, const std::unordered_map<i
 }
 
 std::unordered_map<int, int> ABM::BinOutdegrees(const std::unordered_map<int, std::vector<int>>& binned_neighborhood, int total_outdegree, std::unordered_map<int, double> binned_recency_probabilities) {
+    // initially let's say total_outdegree (requested) = 100
+    // [0.5, 0.2, 0.2, 0.1] recency probability that's the same for all agents
+    // split 100 into proportions
+    // [50, 20, 20, 10]
+    // first check sum(E) == 100
+    // [(6,7,9), (10,9,2), (19,1), (5 * )] actual neighborhood with node ids
+    // [50 - 3, 20 - 3, 20 - 3, 10 - 1] -> "unfulfilled quota"
+    // [47, 17, 17, 9] -> "unfulfilled quota"
+    // look left and right to see if any bins are available
+    // end up citing [3, 3, 2, x] things from each bin
     std::unordered_map<int, int> target_outdegree_per_bin_map;
     int remaining_outdegree = total_outdegree;
     for(int bin_index = 0; bin_index < this->num_bins; bin_index ++) {
@@ -635,8 +651,17 @@ std::unordered_map<int, int> ABM::BinOutdegrees(const std::unordered_map<int, st
         remaining_outdegree -= current_bin_outdegree;
     }
     // MARK: debug
-    for(int bin_index = 4; bin_index < remaining_outdegree; bin_index ++) {
-        target_outdegree_per_bin_map[bin_index] += 1;
+    /* for(int bin_index = 0; bin_index < remaining_outdegree; bin_index ++) { */
+    /*     target_outdegree_per_bin_map[bin_index] += 1; */
+    /* } */
+    int current_remaining_bin_index = 0;
+    while(remaining_outdegree > 0) {
+        target_outdegree_per_bin_map[current_remaining_bin_index] += 1;
+        current_remaining_bin_index ++;
+        remaining_outdegree --;
+        if(current_remaining_bin_index >= this->num_bins) {
+            current_remaining_bin_index = 0;
+        }
     }
     int outdegree_per_bin_sum = 0;
     for(const auto& current_bin : target_outdegree_per_bin_map) {
@@ -651,11 +676,32 @@ std::unordered_map<int, int> ABM::BinOutdegrees(const std::unordered_map<int, st
         }
         exit(-1);
     }
+    for(int bin_index = 0; bin_index < this->num_bins; bin_index ++) {
+        int current_uncited_num_nodes = target_outdegree_per_bin_map[bin_index] - binned_neighborhood.at(bin_index).size();
+        if (current_uncited_num_nodes > 0) {
+            for(int sweep_index = bin_index - 1; sweep_index >= 0 && current_uncited_num_nodes > 0; sweep_index --) {
+                if (target_outdegree_per_bin_map[sweep_index] < (int)binned_neighborhood.at(sweep_index).size()) {
+                    int current_citable = std::min(current_uncited_num_nodes, (int)binned_neighborhood.at(sweep_index).size() - target_outdegree_per_bin_map[sweep_index]);
+                    current_uncited_num_nodes -= current_citable;
+                    target_outdegree_per_bin_map[sweep_index] += current_citable;
+                    target_outdegree_per_bin_map[bin_index] -= current_citable;
+                }
+            }
+            for(int sweep_index = bin_index + 1; sweep_index < this->num_bins && current_uncited_num_nodes > 0; sweep_index ++) {
+                if (target_outdegree_per_bin_map[sweep_index] < (int)binned_neighborhood.at(sweep_index).size()) {
+                    int current_citable = std::min(current_uncited_num_nodes, (int)binned_neighborhood.at(sweep_index).size() - target_outdegree_per_bin_map[sweep_index]);
+                    current_uncited_num_nodes -= current_citable;
+                    target_outdegree_per_bin_map[sweep_index] += current_citable;
+                    target_outdegree_per_bin_map[bin_index] -= current_citable;
+                }
+            }
+        }
+    }
+    /*
     std::unordered_map<int, int> uncited_nodes;
     for(int bin_index = 0; bin_index < this->num_bins; bin_index ++) {
         uncited_nodes[bin_index] = target_outdegree_per_bin_map[bin_index] - binned_neighborhood.at(bin_index).size();
     }
-
     for(int bin_index = 0; bin_index < this->num_bins; bin_index ++) {
         int current_uncited_num_nodes = uncited_nodes[bin_index];
         if (current_uncited_num_nodes > 0) {
@@ -677,6 +723,7 @@ std::unordered_map<int, int> ABM::BinOutdegrees(const std::unordered_map<int, st
             }
         }
     }
+    */
     outdegree_per_bin_sum = 0;
     int neighborhood_per_bin_sum = 0;
     for(const auto& current_bin : target_outdegree_per_bin_map) {
@@ -702,8 +749,8 @@ int ABM::GetBinIndex(int year_diff) {
     /* [5, 10) */
     /* [10, 25) */
     /* [25, inf) */
-    for (size_t i = 0; i < this->bin_boundaries.size(); i ++) {
-        if (year_diff < this->bin_boundaries.at(i)) {
+    for (int i = 0; i < this->num_bins - 1; i ++) {
+        if (this->bin_boundaries.at(i) <= year_diff && year_diff < this->bin_boundaries.at(i + 1)) {
             return i;
         }
     }
@@ -870,29 +917,20 @@ std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoDistanceNeighborhoods
                     }
                     std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(n_hop_map[2]), max_neighborhood_size - n_hop_map[2].size(), generator);
                     if (n_hop_map[2].size() == max_neighborhood_size) {
-                        // MARK: debug
-                        for(int k = 1; k < 3; k ++) {
-                            for(int l = 1; l < n_hop_map[k].size(); l ++) {
-                                /* if (n_hop_map[k][l] > 14694932) { */
-                                /*     std::cerr << std::to_string(k) + " distance neighborhood contained a node greater than 14694932 in the middle" << std::endl; */
-                                /*     exit(1); */
-                                /* } */
-                            }
-                        }
                         return n_hop_map;
                     }
                 }
             }
         }
     }
-    for(int k = 1; k < 3; k ++) {
-        for(int l = 1; l < n_hop_map[k].size(); l ++) {
+    /* for(int k = 1; k < 3; k ++) { */
+    /*     for(int l = 1; l < n_hop_map[k].size(); l ++) { */
             /* if (n_hop_map[k][l] > 14694932) { */
             /*     std::cerr << std::to_string(k) + " distance neighborhood contained a node greater than 14694932 at the end" << std::endl; */
             /*     exit(1); */
             /* } */
-        }
-    }
+        /* } */
+    /* } */
     return n_hop_map;
 }
 
@@ -1074,26 +1112,147 @@ void ABM::InitializeBinBoundaries() {
     std::string current_value;
     int element_no = 0;
     while(std::getline(ss, current_value, ',')) {
-        if (element_no > 0) {
-            int current_bin_end_value = std::stoi(current_value);
-            if (current_bin_end_value != -1) {
-                this->bin_boundaries.push_back(current_bin_end_value);
-            }
+        /* if (element_no > 0) { */
+        int current_bin_value = std::stoi(current_value);
+        if (current_bin_value != -1) {
+            this->bin_boundaries.push_back(current_bin_value);
         }
+        /* } */
         element_no ++;
     }
     this->num_bins = element_no;
 }
 
+bool ABM::ValidateBinBoundaries() {
+    this->WriteToLogFile(std::to_string(this->bin_boundaries.size()) + " bins have been created", Log::info);
+    if (this->bin_boundaries.size() == 0) {
+        this->WriteToLogFile("At least one bin is required", Log::error);
+        return false;
+    }
+    if (this->bin_boundaries.at(0) != 1) {
+        this->WriteToLogFile("The first bin must start with year 1", Log::error);
+        return false;
+    }
+    std::string recency_bin_string;
+    for(size_t i = 0; i < this->bin_boundaries.size() - 1; i ++) {
+        recency_bin_string += ("[" + std::to_string(bin_boundaries.at(i)) + "," + std::to_string(this->bin_boundaries.at(i + 1)) + "), ");
+    }
+    recency_bin_string += ("[" + std::to_string(this->bin_boundaries.at(this->bin_boundaries.size() - 1)) + ",infinity)");
+    this->WriteToLogFile("Here are the bins: " + recency_bin_string, Log::info);
+    return true;
+}
+
+bool ABM::ValidateArguments() {
+    if (!this->ValidateArgument("Environment", "edgelist", this->edgelist, "NOTFOUND")) {
+        return false;
+    }
+    if (!this->ValidateArgument("Environment", "nodelist", this->nodelist, "NOTFOUND")) {
+        return false;
+    }
+    if (!this->ValidateArgument("Environment", "growth_rate", this->growth_rate, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("Environment", "num_cycles", this->num_cycles, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("Environment", "out_degree_bag", this->out_degree_bag, "NOTFOUND")) {
+        return false;
+    }
+    if (!this->ValidateArgument("Environment", "recency_table", this->recency_table, "NOTFOUND")) {
+        return false;
+    }
+    if (this->planted_nodes == "NOTFOUND") {
+        this->WriteToLogFile("No agents will be planted", Log::info);
+    } else {
+        this->WriteToLogFile("planted_nodes: " + this->planted_nodes, Log::info);
+    }
+    if (!this->ValidateArgument("Agent", "fully_random_citations", this->fully_random_citations, -42)) {
+        return false;
+    }
+    if (this->preferential_weight == -42) {
+        this->WriteToLogFile("Required parameter 'preferential_weight' was not found in the 'Agent' section", Log::error);
+        return false;
+    } else if (this->preferential_weight == -1) {
+        this->WriteToLogFile("preferential_weight: randomized", Log::info);
+    } else {
+        this->WriteToLogFile("preferential_weight: " + std::to_string(this->preferential_weight), Log::info);
+    }
+    if (this->fitness_weight == -42) {
+        this->WriteToLogFile("Required parameter 'fitness_weight' was not found in the 'Agent' section", Log::error);
+        return false;
+    } else if (this->fitness_weight == -1) {
+        this->WriteToLogFile("fitness_weight: randomized", Log::info);
+    } else {
+        this->WriteToLogFile("fitness_weight: " + std::to_string(this->fitness_weight), Log::info);
+    }
+    if (!this->ValidateArgument("Agent", "fitness_value_min", this->fitness_value_min, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("Agent", "fitness_value_max", this->fitness_value_max, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("Agent", "same_year_citations", this->same_year_citations, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("Agent", "neighborhood_sample", this->neighborhood_sample, -42)) {
+        return false;
+    }
+    if (this->use_alpha) {
+        if (this->alpha == -42) {
+            this->WriteToLogFile("Required parameter 'alpha' was not found in the 'Agent' section while 'use_alpha' was true", Log::error);
+            return false;
+        } else if (this->alpha == -1) {
+            this->WriteToLogFile("alpha: randomized", Log::info);
+        } else {
+            this->WriteToLogFile("alpha: " + std::to_string(this->alpha), Log::info);
+        }
+    } else {
+        if (this->alpha == -42) {
+            this->WriteToLogFile("Alpha ignored. Agents will not split the neighborhood into 1 and 2 distance neighborhoods", Log::info);
+        } else {
+            this->WriteToLogFile("'use_alpha' is false but a value for 'alpha' was provided", Log::error);
+            return false;
+        }
+    }
+    if (this->start_from_checkpoint) {
+        this->WriteToLogFile("Starting from a checkpoint. Make sure the edgelist and nodelist provided are the result of a previous simulation", Log::info);
+    } else {
+        this->WriteToLogFile("Not using checkpointing. Starting simulation from the first year.", Log::info);
+    }
+    if (!this->ValidateArgument("General", "output_file", this->output_file, "NOTFOUND")) {
+        return false;
+    }
+    if (!this->ValidateArgument("General", "recency_bins", this->recency_bins, "NOTFOUND")) {
+        return false;
+    }
+    if (!this->ValidateArgument("General", "auxiliary_information_file", this->auxiliary_information_file, "NOTFOUND")) {
+        return false;
+    }
+    if (!this->ValidateArgument("General", "log_file", this->log_file, "NOTFOUND")) {
+        return false;
+    }
+    if (!this->ValidateArgument("General", "num_processors", this->num_processors, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("General", "log_level", this->log_level, -42)) {
+        return false;
+    }
+    return true;
+}
+
+
 int ABM::main() {
     /* std::cerr << "running with asserts" << std::endl; */
+    if (!this->ValidateBinBoundaries()) {
+        return 1;
+    }
+    return 1;
     Graph* graph = new Graph(this->edgelist, this->nodelist, this->start_from_checkpoint);
     this->WriteToLogFile("loaded graph", Log::info);
     /* if (!this->start_from_checkpoint) { */
     /*     this->InitializeSeedFitness(graph); */
     /* } */
     /* this->InitializeFitness(graph); */
-    this->InitializeBinBoundaries();
 
     /* node ids to continous integer from 0 */
     std::unordered_map<int, int> continuous_node_mapping = this->BuildContinuousNodeMapping(graph);
@@ -1149,7 +1308,7 @@ int ABM::main() {
         this->LogTime(current_year, "Fill in-degree array");
         this->FillFitnessArr(graph, continuous_node_mapping, current_year, fitness_arr);
         this->LogTime(current_year, "Fill fitness array");
-        std::unordered_map<int, double> binned_recency_probabilities = GetBinnedRecencyProbabilities(graph, current_year);
+        std::unordered_map<int, double> binned_recency_probabilities = GetBinnedRecencyProbabilities(graph, current_year); // MARK: probbaly don't need to re-generate
         this->CalculateExpScores(exp_cached_results, in_degree_arr, pa_arr, current_graph_size);
         this->LogTime(current_year, "Process in-degree array");
         /* this->CalculateTanhScores(tanh_cached_results, fitness_arr, fit_arr, current_graph_size); */
@@ -1192,15 +1351,26 @@ int ABM::main() {
             std::vector<std::pair<std::string, int>> local_parallel_stage_time_vec;
 
 
-            int citations[250]; // out-degree assumed to be max 249
+            int citations[250]; // out-degree assumed to be max 249 MARK: macro 250 or better would be parse outdegree bag and set to max outdegree
             int new_node = new_nodes_vec[i];
+            // continuous_node_mapping = node id -> 0..n but guaranteed 0 .. initial graph size are seed nodes
+            // initial graphsize .. n are agent nodes
             int weight_arr_index = continuous_node_mapping[new_node] - initial_graph_size;
             double pa_weight = pa_weight_arr[weight_arr_index];
             double fit_weight = fit_weight_arr[weight_arr_index];
             double alpha = alpha_arr[weight_arr_index];
             std::vector<int> generator_nodes = this->GetGraphAttributesGeneratorNodes(graph, new_node);
             int num_hops = 2;
+            // if use alpha then map has keys 1 and 2
+            // if use alpha false then map has only key 1
             std::unordered_map<int, std::vector<int>> n_hop_map = this->GetNeighborhoodMap(graph, current_year, generator_nodes, num_hops);
+            // out-degree assigned is D
+            // G=1 for generator node
+            // S=0 or 1 sometimes if i'm a same year source
+            // 5% or 0.05 is default proprotion of random so R = (D * 0.05)
+            // citing from neighborhood based on scores is N = D - G - S - R
+            // if use alpha true then there's 2 neighborhoods so N * alpha for 1-hop N * (1- alpha) for 2-hop
+            // if use alpha false then there's 1 neighborhood so cite N things from there
 
             int num_generator_node_citation = generator_nodes.size(); // should be 1 for now
             int same_year_citation = same_year_source_nodes.count(i); // could be 0 or 1
@@ -1215,7 +1385,7 @@ int ABM::main() {
             /* std::cerr << "num actually cited at " + std::to_string(num_actually_cited) + " after same year citations" << std::endl; */
             local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make same year citations");
 
-            for(size_t current_neighborhood_index = 1; current_neighborhood_index < n_hop_map.size() + 1; current_neighborhood_index ++) {
+            for(size_t current_neighborhood_index = 1; current_neighborhood_index < n_hop_map.size() + 1; current_neighborhood_index ++) { // 2 iter if use alpha true
                 std::unordered_map<int, std::vector<int>> binned_neighborhood = this->BinNeighborhood(graph, current_year, n_hop_map.at(current_neighborhood_index));
                 local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "bin neighborhood");
 

@@ -25,16 +25,34 @@ enum Log {info, debug, error = -1};
 class ABM {
     public:
         ABM(std::string edgelist, std::string nodelist, std::string out_degree_bag, std::string recency_table, std::string recency_bins, double alpha, double minimum_alpha, bool use_alpha, bool start_from_checkpoint, std::string planted_nodes, double fully_random_citations, double preferential_weight, double fitness_weight, int fitness_value_min, int fitness_value_max, double minimum_preferential_weight, double minimum_fitness_weight, double growth_rate, int num_cycles, double same_year_citations, int neighborhood_sample, std::string output_file, std::string auxiliary_information_file, std::string log_file, int num_processors, int log_level) : edgelist(edgelist), nodelist(nodelist), out_degree_bag(out_degree_bag), recency_table(recency_table), recency_bins(recency_bins), alpha(alpha), minimum_alpha(minimum_alpha), use_alpha(use_alpha), start_from_checkpoint(start_from_checkpoint), planted_nodes(planted_nodes), fully_random_citations(fully_random_citations), preferential_weight(preferential_weight), fitness_weight(fitness_weight), fitness_value_min(fitness_value_min), fitness_value_max(fitness_value_max), minimum_preferential_weight(minimum_preferential_weight), minimum_fitness_weight(minimum_fitness_weight), growth_rate(growth_rate), num_cycles(num_cycles), same_year_citations(same_year_citations), neighborhood_sample(neighborhood_sample), output_file(output_file), auxiliary_information_file(auxiliary_information_file), log_file(log_file), num_processors(num_processors), log_level(log_level) {
+            // initial validation
+            if (this->log_file == "NOTFOUND") {
+                std::cerr << "Log file is required" << std::endl;
+                exit(1);
+            }
+            if (this->log_level == -42) {
+                std::cerr << "Log level is required" << std::endl;
+                exit(1);
+            }
             if(this->log_level > -1) {
                 this->start_time = std::chrono::steady_clock::now();
                 this->log_file_handle.open(this->log_file);
+                if (!this->log_file_handle) {
+                    std::cerr << "Opening log file failed" << std::endl;
+                    std::cerr << "Requested path: " + this->log_file << std::endl;
+                    exit(1);
+                }
                 this->timing_file_handle.open(this->log_file + "_timing");
                 this->timing_file_handle << "year,stage,time\n";
+            }
+            if (!this->ValidateArguments()) {
+                exit(1);
             }
             this->num_calls_to_log_write = 0;
             this->ReadOutDegreeBag();
             this->ReadRecencyProbabilities();
             this->ReadPlantedNodes();
+            this->InitializeBinBoundaries();
             omp_set_num_threads(this->num_processors);
         };
 
@@ -47,6 +65,8 @@ class ABM {
 
         int main();
         int WriteToLogFile(std::string message, Log message_type);
+        bool ValidateArguments();
+        bool ValidateBinBoundaries();
         void ReadOutDegreeBag();
         void ReadRecencyProbabilities();
         void ReadPlantedNodes();
@@ -102,6 +122,22 @@ class ABM {
                 graph->SetIntAttribute("fitness_peak_value", node, fitness_power);
             }
         }
+
+
+        template<typename T1, typename T2>
+        bool ValidateArgument(std::string section, std::string argument_name, T1 argument_value, T2 default_value) {
+            if (argument_value == default_value) {
+                this->WriteToLogFile("Required parameter '" + argument_name + "' was not found in the '" + section + "' section", Log::error);
+                return false;
+            }
+            if constexpr (std::is_same_v<T1, std::string>) {
+                this->WriteToLogFile(argument_name + ": " + argument_value, Log::info);
+            } else {
+                this->WriteToLogFile(argument_name + ": " + std::to_string(argument_value), Log::info);
+            }
+            return true;
+        }
+
 
         template<typename T>
         void AssignFitnessLagDuration(Graph* graph, const T& container) {

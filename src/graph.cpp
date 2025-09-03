@@ -43,7 +43,10 @@ void Graph::ParseNodelist() {
         if (line_no != 0) {
             int integer_node = std::stoi(current_line[header_to_index_map["node_id"]]);
             int integer_year = std::stoi(current_line[header_to_index_map["year"]]);
+            this->SetIntAttribute("year", integer_node, integer_year);
             if (this->start_from_checkpoint) {
+                std::string type_string = current_line[header_to_index_map["type"]];
+                this->SetStringAttribute("type", integer_node, type_string);
                 double pa_weight = std::stod(current_line[header_to_index_map["pa_weight"]]);
                 this->SetDoubleAttribute("preferential_attachment_weight", integer_node, pa_weight);
                 double fit_weight = std::stod(current_line[header_to_index_map["fit_weight"]]);
@@ -68,7 +71,6 @@ void Graph::ParseNodelist() {
                 int fitness_lag_uniform = 0; // MARK: hard coded to be static fitness
                 int fitness_peak_uniform = 1000; // MARK: hard coded to be static fitness
                 int fitness_power = 1;
-                this->SetIntAttribute("year", integer_node, integer_year);
                 this->SetStringAttribute("type", integer_node, "seed");
                 this->SetIntAttribute("fitness_lag_duration", integer_node, fitness_lag_uniform);
                 this->SetIntAttribute("fitness_peak_duration", integer_node, fitness_peak_uniform);
