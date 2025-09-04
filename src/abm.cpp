@@ -654,6 +654,17 @@ std::unordered_map<int, int> ABM::BinOutdegrees(const std::unordered_map<int, st
     /* for(int bin_index = 0; bin_index < remaining_outdegree; bin_index ++) { */
     /*     target_outdegree_per_bin_map[bin_index] += 1; */
     /* } */
+    /* std::cerr << "Original out-degree: " + std::to_string(total_outdegree) + " and remaining out-degree: " + std::to_string(remaining_outdegree) << std::endl; */
+    std::uniform_int_distribution<int> year_distribution{1, 5};
+    pcg_extras::seed_seq_from<std::random_device> rand_dev;
+    pcg32 generator(rand_dev);
+    while(remaining_outdegree > 0) {
+        int chosen_year = year_distribution(generator);
+        int current_bin_index = this->GetBinIndex(chosen_year);
+        target_outdegree_per_bin_map[current_bin_index] += 1;
+        remaining_outdegree --;
+    }
+    /*
     int current_remaining_bin_index = 0;
     while(remaining_outdegree > 0) {
         target_outdegree_per_bin_map[current_remaining_bin_index] += 1;
@@ -663,6 +674,7 @@ std::unordered_map<int, int> ABM::BinOutdegrees(const std::unordered_map<int, st
             current_remaining_bin_index = 0;
         }
     }
+    */
     int outdegree_per_bin_sum = 0;
     for(const auto& current_bin : target_outdegree_per_bin_map) {
         int bin_index = current_bin.first;
@@ -1246,7 +1258,6 @@ int ABM::main() {
     if (!this->ValidateBinBoundaries()) {
         return 1;
     }
-    return 1;
     Graph* graph = new Graph(this->edgelist, this->nodelist, this->start_from_checkpoint);
     this->WriteToLogFile("loaded graph", Log::info);
     /* if (!this->start_from_checkpoint) { */
