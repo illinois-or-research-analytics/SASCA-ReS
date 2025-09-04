@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
     std::string auxiliary_information_file = reader.Get("General", "auxiliary_information_file", "NOTFOUND");
     std::string log_file = reader.Get("General", "log_file", "NOTFOUND");
     int num_processors = reader.GetInteger("General", "num_processors", -42);
-    int log_level = reader.GetInteger("General", "log_level", -42);
+    int log_level = reader.GetInteger("General", "log_level", -41) - 1;
     ABM* abm = new ABM(edgelist, nodelist, out_degree_bag, recency_table, recency_bins, alpha, minimum_alpha, use_alpha, start_from_checkpoint, planted_nodes, fully_random_citations, preferential_weight, fitness_weight, fitness_value_min, fitness_value_max, minimum_preferential_weight, minimum_fitness_weight, growth_rate, num_cycles, same_year_citations, neighborhood_sample, output_file, auxiliary_information_file, log_file, num_processors, log_level);
     abm->main();
     delete abm;
