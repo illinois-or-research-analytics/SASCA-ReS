@@ -171,12 +171,13 @@ void Graph::WriteGraph(std::string output_file) const {
 
 void Graph::WriteAttributes(std::string auxiliary_information_file) const {
     std::ofstream auxiliary_information_filehandle(auxiliary_information_file);
-    auxiliary_information_filehandle << "node_id,type,year,pa_weight,fit_weight,fit_lag_duration,fit_peak_value,fit_peak_duration,in_degree,out_degree,assigned_out_degree,planted_nodes_line_number,generator_node_string,sampled_neighborhood_size,fully_random_citations\n";
+    auxiliary_information_filehandle << "node_id,type,year,alpha,pa_weight,fit_weight,fit_lag_duration,fit_peak_value,fit_peak_duration,in_degree,out_degree,assigned_out_degree,planted_nodes_line_number,generator_node_string,sampled_neighborhood_size,fully_random_citations\n";
     for(const auto& node_id : this->GetNodeSet()) {
         std::string node_type = this->GetStringAttribute("type", node_id);
         int year = this->GetIntAttribute("year", node_id);
         double pa_weight = -1;
         double fit_weight = -1;
+        double alpha = -1;
         int fit_lag_duration = this->GetIntAttribute("fitness_lag_duration", node_id);
         int fit_peak_value = this->GetIntAttribute("fitness_peak_value", node_id);
         int fit_peak_duration = this->GetIntAttribute("fitness_peak_duration", node_id);
@@ -188,6 +189,7 @@ void Graph::WriteAttributes(std::string auxiliary_information_file) const {
         int neighborhood_size = -1;
         int fully_random_citations = -1;
         if(node_type == "agent") {
+            alpha = this->GetDoubleAttribute("alpha", node_id);
             pa_weight = this->GetDoubleAttribute("preferential_attachment_weight", node_id);
             fit_weight = this->GetDoubleAttribute("fitness_weight", node_id);
             assigned_out_degree = this->GetIntAttribute("assigned_out_degree", node_id);
@@ -198,7 +200,7 @@ void Graph::WriteAttributes(std::string auxiliary_information_file) const {
             neighborhood_size = this->GetIntAttribute("sampled_neighborhood_size", node_id);
             fully_random_citations = this->GetIntAttribute("fully_random_citations", node_id);
         }
-        auxiliary_information_filehandle << node_id << "," << node_type << "," << year << "," << pa_weight << "," << fit_weight << "," << fit_lag_duration << "," << fit_peak_value << "," << fit_peak_duration << "," << in_degree << "," << out_degree << "," << assigned_out_degree << "," << planted_nodes_line_number << "," << generator_node_string << "," << neighborhood_size << "," << fully_random_citations << "\n";
+        auxiliary_information_filehandle << node_id << "," << node_type << "," << year << "," << alpha << "," << pa_weight << "," << fit_weight << "," << fit_lag_duration << "," << fit_peak_value << "," << fit_peak_duration << "," << in_degree << "," << out_degree << "," << assigned_out_degree << "," << planted_nodes_line_number << "," << generator_node_string << "," << neighborhood_size << "," << fully_random_citations << "\n";
     }
     auxiliary_information_filehandle.close();
 }

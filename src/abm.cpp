@@ -1479,6 +1479,8 @@ int ABM::main() {
     for(auto const& node_id : graph->GetNodeSet()) {
         graph->SetIntAttribute("in_degree", node_id, graph->GetInDegree(node_id));
         graph->SetIntAttribute("out_degree", node_id, graph->GetOutDegree(node_id));
+        int weight_arr_index = continuous_node_mapping[node_id] - initial_graph_size;
+        graph->SetDoubleAttribute("alpha", node_id, alpha_arr[weight_arr_index]);
     }
 
     graph->WriteAttributes(this->auxiliary_information_file);
