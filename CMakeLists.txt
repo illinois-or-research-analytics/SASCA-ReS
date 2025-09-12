@@ -7,7 +7,6 @@ if("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
 else()
     #[[ Set project version ]]
     project(abm)
-    list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib/cmake/eigen)
     # list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib/cmake/igraph)
     # list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib/cmake/libleidenalg)
     # list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib64/cmake/igraph)
@@ -36,32 +35,29 @@ else()
     # set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -ggdb -fno-omit-frame-pointer")
     # File paths
     set(SOURCE_MAIN ${CMAKE_SOURCE_DIR}/src/main.cpp)
-    set(SOURCE_INTERNAL_LIBS
+    set(SOURCE_FILES
         ${CMAKE_SOURCE_DIR}/src/abm.cpp
         ${CMAKE_SOURCE_DIR}/src/graph.cpp
+        ${CMAKE_SOURCE_DIR}/src/utils.cpp
     )
     #[[ CONSTANTS END ]]
 
     #[[ Define the output binary ]]
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-    add_executable(abm ${SOURCE_MAIN})
-
-    #[[ Link internal libraries ]]
-    add_library(internal_libs ${SOURCE_INTERNAL_LIBS})
-    target_include_directories(internal_libs
-        PUBLIC ${CMAKE_SOURCE_DIR}/includes
-        PUBLIC ${CMAKE_SOURCE_DIR}/src
-        PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/pcg-cpp/include
-        PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/inih
-    )
-    # target_link_libraries(internal_libs PUBLIC igraph::igraph)
-    # target_link_libraries(internal_libs PUBLIC libleidenalg::libleidenalg)
-    target_link_libraries(internal_libs PUBLIC OpenMP::OpenMP_CXX)
-    target_link_libraries(internal_libs PUBLIC Eigen3::Eigen)
-    target_link_libraries(abm PUBLIC internal_libs)
+    add_executable(abm
+        ${SOURCE_MAIN}
+        ${SOURCE_FILES}
+        )
 
     #[[ Link libraries ]]
-    add_subdirectory(libs)
-    target_link_libraries(abm PUBLIC external_libs)
+    add_subdirectory(external_libs)
+    target_link_libraries(abm PUBLIC OpenMP::OpenMP_CXX)
+    target_link_libraries(abm PUBLIC Eigen3::Eigen)
+    target_link_libraries(abm PUBLIC external_header_libs)
+
+    target_include_directories(abm
+        PUBLIC ${CMAKE_SOURCE_DIR}/includes
+    )
+
 
 endif("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
