@@ -5,8 +5,8 @@ SASCA, or Scalable Agent-based Simulator for Citation Analysis, as the name sugg
 - C++ >= 20
 - OpenMP >= 4.0
 - cmake >= 3.23
-- Eigen3 (can be locally instaleld via [setup.sh](setup.sh))
-- PCG (can be locally instaleld via [setup.sh](setup.sh))
+- Eigen3 (can be locally installed via [setup.sh](setup.sh))
+- PCG (can be locally installed via [setup.sh](setup.sh))
 
 ## One time setup
 Run [setup.sh](setup.sh) to locally install [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) and [PCG](https://www.pcg-random.org/). Alternatively, just ensure that both Eigen and PCG libraries are discoverable by cmake.
