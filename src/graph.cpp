@@ -188,7 +188,7 @@ void Graph::WriteAttributes(std::string auxiliary_information_file) const {
         std::string generator_node_string  = "no_generators";
         int neighborhood_size = -1;
         int fully_random_citations = -1;
-        if(node_type == "agent") {
+        if(node_type != "agent") {
             alpha = this->GetDoubleAttribute("alpha", node_id);
             pa_weight = this->GetDoubleAttribute("preferential_attachment_weight", node_id);
             fit_weight = this->GetDoubleAttribute("fitness_weight", node_id);

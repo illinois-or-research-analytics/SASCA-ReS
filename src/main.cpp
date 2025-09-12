@@ -128,11 +128,12 @@ int main(int argc, char* argv[]) {
 /* num_processors=<INT> ; integer valued maximum parallelism allowed */
 /* log_level=<INT> ; 0, 1, and 2 for silent, info, and verbose */
 /* reader.Get("user", "name", "UNKNOWN") << ", email=" */
-    std::string edgelist = reader.Get("Environment", "edgelist", "NOTFOUND");
-    std::string nodelist = reader.Get("Environment", "nodelist", "NOTFOUND");
-    std::string out_degree_bag = reader.Get("Environment", "out_degree_bag", "NOTFOUND");
-    std::string recency_table = reader.Get("Environment", "recency_table", "NOTFOUND");
-    std::string planted_nodes = reader.Get("Environment", "planted_nodes", "NOTFOUND");
+    std::string edgelist = reader.Get("Environment", "edgelist", "");
+    std::string nodelist = reader.Get("Environment", "nodelist", "");
+    std::string out_degree_bag = reader.Get("Environment", "out_degree_bag", "");
+    std::string recency_table = reader.Get("Environment", "recency_table", "");
+    std::string planted_nodes = reader.Get("Environment", "planted_nodes", "");
+    std::cerr << "planted nodes is: " << planted_nodes << std::endl;
     double growth_rate = reader.GetReal("Environment", "growth_rate", -42);
     int num_cycles = reader.GetInteger("Environment", "num_cycles", -42);
     double fully_random_citations = reader.GetReal("Agent", "fully_random_citations", -42);
@@ -145,8 +146,9 @@ int main(int argc, char* argv[]) {
     double same_year_citations = reader.GetReal("Agent", "same_year_citations", -42);
     int neighborhood_sample = reader.GetInteger("Agent", "neighborhood_sample", -42);
     double alpha = reader.GetReal("Agent", "alpha", -42);
+    std::cerr << "alpha is: " << alpha << std::endl;
     double minimum_alpha = reader.GetReal("Agent", "minimum_alpha", -42);
-    std::string use_alpha_string = reader.Get("Agent", "use_alpha", "NOTFOUND");
+    std::string use_alpha_string = reader.Get("Agent", "use_alpha", "");
     bool use_alpha = false;
     if (use_alpha_string == "true") {
         use_alpha = true;
@@ -156,7 +158,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Valid values for required flag use_alpha are 'true' or 'false'" << std::endl;
         return 1;
     }
-    std::string start_from_checkpoint_string = reader.Get("Environment", "start_from_checkpoint", "NOTFOUND");
+    std::string start_from_checkpoint_string = reader.Get("Environment", "start_from_checkpoint", "");
     bool start_from_checkpoint = false;
     if (start_from_checkpoint_string == "true") {
         start_from_checkpoint = true;
@@ -167,10 +169,10 @@ int main(int argc, char* argv[]) {
         std::cerr << start_from_checkpoint_string + " is invalid" << std::endl;
         return 1;
     }
-    std::string recency_bins = reader.Get("Environment", "recency_bins", "NOTFOUND");
-    std::string output_file = reader.Get("General", "output_file", "NOTFOUND");
-    std::string auxiliary_information_file = reader.Get("General", "auxiliary_information_file", "NOTFOUND");
-    std::string log_file = reader.Get("General", "log_file", "NOTFOUND");
+    std::string recency_bins = reader.Get("Environment", "recency_bins", "");
+    std::string output_file = reader.Get("General", "output_file", "");
+    std::string auxiliary_information_file = reader.Get("General", "auxiliary_information_file", "");
+    std::string log_file = reader.Get("General", "log_file", "");
     int num_processors = reader.GetInteger("General", "num_processors", -42);
     int log_level = reader.GetInteger("General", "log_level", -41) - 1;
     ABM* abm = new ABM(edgelist, nodelist, out_degree_bag, recency_table, recency_bins, alpha, minimum_alpha, use_alpha, start_from_checkpoint, planted_nodes, fully_random_citations, preferential_weight, fitness_weight, fitness_value_min, fitness_value_max, minimum_preferential_weight, minimum_fitness_weight, growth_rate, num_cycles, same_year_citations, neighborhood_sample, output_file, auxiliary_information_file, log_file, num_processors, log_level);

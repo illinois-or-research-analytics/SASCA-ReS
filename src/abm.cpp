@@ -1257,10 +1257,10 @@ bool ABM::ValidateBinBoundaries() {
 }
 
 bool ABM::ValidateArguments() {
-    if (!this->ValidateArgument("Environment", "edgelist", this->edgelist, "NOTFOUND")) {
+    if (!this->ValidateArgument("Environment", "edgelist", this->edgelist, "")) {
         return false;
     }
-    if (!this->ValidateArgument("Environment", "nodelist", this->nodelist, "NOTFOUND")) {
+    if (!this->ValidateArgument("Environment", "nodelist", this->nodelist, "")) {
         return false;
     }
     if (!this->ValidateArgument("Environment", "growth_rate", this->growth_rate, -42)) {
@@ -1269,13 +1269,13 @@ bool ABM::ValidateArguments() {
     if (!this->ValidateArgument("Environment", "num_cycles", this->num_cycles, -42)) {
         return false;
     }
-    if (!this->ValidateArgument("Environment", "out_degree_bag", this->out_degree_bag, "NOTFOUND")) {
+    if (!this->ValidateArgument("Environment", "out_degree_bag", this->out_degree_bag, "")) {
         return false;
     }
-    if (!this->ValidateArgument("Environment", "recency_table", this->recency_table, "NOTFOUND")) {
+    if (!this->ValidateArgument("Environment", "recency_table", this->recency_table, "")) {
         return false;
     }
-    if (this->planted_nodes == "NOTFOUND") {
+    if (this->planted_nodes == "") {
         this->WriteToLogFile("No agents will be planted", Log::info);
     } else {
         this->WriteToLogFile("planted_nodes: " + this->planted_nodes, Log::info);
@@ -1333,16 +1333,16 @@ bool ABM::ValidateArguments() {
     } else {
         this->WriteToLogFile("Not using checkpointing. Starting simulation from the first year.", Log::info);
     }
-    if (!this->ValidateArgument("General", "output_file", this->output_file, "NOTFOUND")) {
+    if (!this->ValidateArgument("General", "output_file", this->output_file, "")) {
         return false;
     }
-    if (!this->ValidateArgument("General", "recency_bins", this->recency_bins, "NOTFOUND")) {
+    if (!this->ValidateArgument("General", "recency_bins", this->recency_bins, "")) {
         return false;
     }
-    if (!this->ValidateArgument("General", "auxiliary_information_file", this->auxiliary_information_file, "NOTFOUND")) {
+    if (!this->ValidateArgument("General", "auxiliary_information_file", this->auxiliary_information_file, "")) {
         return false;
     }
-    if (!this->ValidateArgument("General", "log_file", this->log_file, "NOTFOUND")) {
+    if (!this->ValidateArgument("General", "log_file", this->log_file, "")) {
         return false;
     }
     if (!this->ValidateArgument("General", "num_processors", this->num_processors, -42)) {

@@ -26,7 +26,7 @@ class ABM {
     public:
         ABM(std::string edgelist, std::string nodelist, std::string out_degree_bag, std::string recency_table, std::string recency_bins, double alpha, double minimum_alpha, bool use_alpha, bool start_from_checkpoint, std::string planted_nodes, double fully_random_citations, double preferential_weight, double fitness_weight, int fitness_value_min, int fitness_value_max, double minimum_preferential_weight, double minimum_fitness_weight, double growth_rate, int num_cycles, double same_year_citations, int neighborhood_sample, std::string output_file, std::string auxiliary_information_file, std::string log_file, int num_processors, int log_level) : edgelist(edgelist), nodelist(nodelist), out_degree_bag(out_degree_bag), recency_table(recency_table), recency_bins(recency_bins), alpha(alpha), minimum_alpha(minimum_alpha), use_alpha(use_alpha), start_from_checkpoint(start_from_checkpoint), planted_nodes(planted_nodes), fully_random_citations(fully_random_citations), preferential_weight(preferential_weight), fitness_weight(fitness_weight), fitness_value_min(fitness_value_min), fitness_value_max(fitness_value_max), minimum_preferential_weight(minimum_preferential_weight), minimum_fitness_weight(minimum_fitness_weight), growth_rate(growth_rate), num_cycles(num_cycles), same_year_citations(same_year_citations), neighborhood_sample(neighborhood_sample), output_file(output_file), auxiliary_information_file(auxiliary_information_file), log_file(log_file), num_processors(num_processors), log_level(log_level) {
             // initial validation
-            if (this->log_file == "NOTFOUND") {
+            if (this->log_file == "") {
                 std::cerr << "Log file is required" << std::endl;
                 exit(1);
             }
@@ -51,7 +51,7 @@ class ABM {
             this->num_calls_to_log_write = 0;
             this->ReadOutDegreeBag();
             this->ReadRecencyProbabilities();
-            if (this->planted_nodes != "NOTFOUND") {
+            if (this->planted_nodes != "") {
                 this->ReadPlantedNodes();
             }
             this->InitializeBinBoundaries();
