@@ -4,7 +4,16 @@
 
 
 external_libs_full_path=$(readlink -f ./external_libs)
-rm -rf ${external_libs_full_path}
+rm -rf ${external_libs_full_path}/argparse
+rm -rf ${external_libs_full_path}/inih
+rm -rf ${external_libs_full_path}/pcg-cpp
+rm -rf ${external_libs_full_path}/eigen-3.4.0
+rm -rf ${external_libs_full_path}/include
+rm -rf ${external_libs_full_path}/share
+rm -rf ${external_libs_full_path}/eigen-3.4.0.tar.gz
+# rm -rf ${external_libs_full_path}/lib64
+# mkdir ${external_libs_full_path}
+# cd ${external_libs_full_path}
 # rm -rf ${external_libs_full_path}/lib64
 mkdir ${external_libs_full_path}
 cd ${external_libs_full_path}
