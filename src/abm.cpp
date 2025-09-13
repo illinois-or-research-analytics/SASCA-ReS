@@ -370,8 +370,8 @@ void ABM::PopulateOutDegreeArr(int* out_degree_arr, int len) {
 void ABM::UpdateGraphAttributesWeights(Graph* graph, int next_node_id, double* pa_weight_arr, double* fit_weight_arr, int len) {
     for(int i = 0; i < len; i ++) {
         int current_node_id = next_node_id + i;
-        graph->SetDoubleAttribute("preferential_attachment_weight", current_node_id, pa_weight_arr[i]);
-        graph->SetDoubleAttribute("fitness_weight", current_node_id, fit_weight_arr[i]);
+        graph->SetDoubleAttribute("pa_weight", current_node_id, pa_weight_arr[i]);
+        graph->SetDoubleAttribute("fit_weight", current_node_id, fit_weight_arr[i]);
     }
 }
 

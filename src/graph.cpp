@@ -47,10 +47,12 @@ void Graph::ParseNodelist() {
             if (this->start_from_checkpoint) {
                 std::string type_string = current_line[header_to_index_map["type"]];
                 this->SetStringAttribute("type", integer_node, type_string);
+                double alpha = std::stod(current_line[header_to_index_map["alpha"]]);
+                this->SetDoubleAttribute("alpha", integer_node, alpha);
                 double pa_weight = std::stod(current_line[header_to_index_map["pa_weight"]]);
-                this->SetDoubleAttribute("preferential_attachment_weight", integer_node, pa_weight);
+                this->SetDoubleAttribute("pa_weight", integer_node, pa_weight);
                 double fit_weight = std::stod(current_line[header_to_index_map["fit_weight"]]);
-                this->SetDoubleAttribute("fitness_weight", integer_node, fit_weight);
+                this->SetDoubleAttribute("fit_weight", integer_node, fit_weight);
                 int fit_lag_duration = std::stoi(current_line[header_to_index_map["fit_lag_duration"]]);
                 this->SetIntAttribute("fitness_lag_duration", integer_node, fit_lag_duration);
                 int fit_peak_value = std::stoi(current_line[header_to_index_map["fit_peak_value"]]);
@@ -190,8 +192,8 @@ void Graph::WriteAttributes(std::string auxiliary_information_file) const {
         int fully_random_citations = -1;
         if(node_type != "agent") {
             alpha = this->GetDoubleAttribute("alpha", node_id);
-            pa_weight = this->GetDoubleAttribute("preferential_attachment_weight", node_id);
-            fit_weight = this->GetDoubleAttribute("fitness_weight", node_id);
+            pa_weight = this->GetDoubleAttribute("pa_weight", node_id);
+            fit_weight = this->GetDoubleAttribute("fit_weight", node_id);
             assigned_out_degree = this->GetIntAttribute("assigned_out_degree", node_id);
             generator_node_string = this->GetStringAttribute("generator_node_string", node_id);
             if(this->HasIntAttribute("planted_nodes_line_number", node_id)) {
