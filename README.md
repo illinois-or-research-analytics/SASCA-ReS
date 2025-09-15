@@ -1,5 +1,5 @@
 # SASCA(-ReS): Scalable Agent-based Simulator for Citation Analysis (with Recency-emphasized Sampling)
-SASCA, or Scalable Agent-based Simulator for Citation Analysis, as the name suggests, is a scalable agent-based modeling simulator that can begin with a small seed network and simulate an exponential network growth to reach sizes of 100 million nodes and more. Currently, SASCA is implemented in modern C++ and can easily be parallelized across hundreds of cores.
+SASCA, or Scalable Agent-based Simulator for Citation Analysis, as the name suggests, is a scalable agent-based modeling simulator that can begin with a small seed network and simulate an exponential network growth to reach sizes of 100 million nodes and more. Currently, SASCA is implemented in modern C++ and can be run across hundreds of cores.
 
 ## Dependencies
 - C++ >= 20
@@ -7,12 +7,32 @@ SASCA, or Scalable Agent-based Simulator for Citation Analysis, as the name sugg
 - cmake >= 3.23
 - Eigen3 (can be locally installed via [setup.sh](setup.sh))
 - PCG (can be locally installed via [setup.sh](setup.sh))
+- inih (can be locally installed via [setup.sh](setup.sh))
+- argparse (can be locally installed via [setup.sh](setup.sh))
 
 ## One time setup
-Run [setup.sh](setup.sh) to locally install [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) and [PCG](https://www.pcg-random.org/). Alternatively, just ensure that both Eigen and PCG libraries are discoverable by cmake.
+Run [setup.sh](setup.sh) to locally install [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page), [PCG](https://www.pcg-random.org/), [inih](https://github.com/jtilly/inih.git), and [argparse](https://github.com/p-ranav/argparse.git). Alternatively, just ensure that these libraries are discoverable by cmake and adjust the build accordingly.
 
 ## How to build
 SASCA is a standard cmake project. [easy_build_and_compile.sh](easy_build_and_compile.sh) is provided for user convenience.
+
+### Running in a cluster environment
+Below is the recommended way of building and running a standard cmake project on a cluster environment such as the Illinois Campus Cluster. This will ensure that the code is compiled with the right optimizations for the specific compute node it is assigned.
+```console
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release <SASCA git root>
+make
+cd ..
+./build/bin/abm --config <configuration file>
+rm -r ./build
+```
+
+### Release mode node on the Illinois Campus Cluster
+Building the project under the Release mode requires no modules to be loaded.
+
+### Debug mode node on the Illinois Campus Cluster
+Building the project under the Debug mode requires the ASAN libray. This library is not loaded properly on the campus cluster by default. For those using the Illinois Campus Cluster, load any `gcc` module version greater than 11 e.g., `module load gcc/12.4.0`.
 
 ## How to run
 The general command is given below.
@@ -74,6 +94,12 @@ alpha=
 use_alpha=false
 ...
 ```
+### Null model
+In order to do a "null model" run, in which agents cite fully randomly within the neighborhood, set the `recency_bins` string to be "1" and nothing else. This leads to a binning where all nodes with age at least 1 get binned into the same single bin. Moreover, since this single bin is also the last bin, everything in this bin will be cited in a fully random manner.
+
+### Single-bin model
+In order to do a "single-bin model" run, in which agents cite based on preferental attachment and fitness within the neighborhood without regards to recency, set the `recency_bins` string to be "1,`some large number`". This leads to a binning where all nodes with age at least 1 and less than `some large number` get binned into the same bin and then any node from `some large number` to infinity gets binned in another bin. This ensures that the [1, `some large number`) bin is not the last bin in the simulation. Therefore, it will cite essentially all nodes according to preferential attachment and fitness only.
+
 ### Individual flags
 #### Environment flags
 - `nodelist`: csv file with (node\_id, publication\_year) on each line. Both headers and their values are required. This is the starting seed network nodelist. When starting from a checkpoint, so when `start_from_checkpoint` is true, then `nodelist` supplied should be the auxiliary information file from the previous run with no modifications.
