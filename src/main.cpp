@@ -133,7 +133,6 @@ int main(int argc, char* argv[]) {
     std::string out_degree_bag = reader.Get("Environment", "out_degree_bag", "");
     std::string recency_table = reader.Get("Environment", "recency_table", "");
     std::string planted_nodes = reader.Get("Environment", "planted_nodes", "");
-    std::cerr << "planted nodes is: " << planted_nodes << std::endl;
     double growth_rate = reader.GetReal("Environment", "growth_rate", -42);
     int num_cycles = reader.GetInteger("Environment", "num_cycles", -42);
     double fully_random_citations = reader.GetReal("Agent", "fully_random_citations", -42);
@@ -146,7 +145,6 @@ int main(int argc, char* argv[]) {
     double same_year_citations = reader.GetReal("Agent", "same_year_citations", -42);
     int neighborhood_sample = reader.GetInteger("Agent", "neighborhood_sample", -42);
     double alpha = reader.GetReal("Agent", "alpha", -42);
-    std::cerr << "alpha is: " << alpha << std::endl;
     double minimum_alpha = reader.GetReal("Agent", "minimum_alpha", -42);
     std::string use_alpha_string = reader.Get("Agent", "use_alpha", "");
     bool use_alpha = false;

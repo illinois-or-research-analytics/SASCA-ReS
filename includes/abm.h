@@ -86,7 +86,7 @@ class ABM {
         void InitializeBinBoundaries();
         int GetBinIndex(Graph* graph, int current_node, int current_year);
         std::unordered_map<int, std::vector<int>> BinNeighborhood(Graph* graph, int current_year, std::vector<int> n_hop_list);
-        std::unordered_map<int, double> GetBinnedRecencyProbabilities(Graph* graph, int current_year);
+        std::unordered_map<int, double> GetBinnedRecencyProbabilities();
         std::unordered_map<int, int> BinOutdegrees(const std::unordered_map<int, std::vector<int>>& binned_neighborhood, int total_outdegree, std::unordered_map<int, double> binned_recency_probabilities);
         std::unordered_map<int, int> GetNumCitationsPerNeighborhood(double alpha, int total_num_citations_neighborhood, const std::unordered_map<int, std::vector<int>>& n_hop_map);
         void FillInDegreeArr(Graph* graph, const std::unordered_map<int, int>& continuous_node_mapping, int* in_degree_arr);
@@ -255,6 +255,7 @@ class ABM {
         const int recency_limit = 3;
         const int peak_constant = 2;
         const int delay_constant = 500;
+        const int max_out_degree = 249;
         int next_author_id = 0;
         int num_bins;
         std::uniform_real_distribution<double> fitness_value_uniform_distribution{0, 1};

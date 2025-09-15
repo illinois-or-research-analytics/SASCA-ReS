@@ -18,6 +18,9 @@ void Graph::ParseEdgelist() {
         while(std::getline(ss, current_value, delimiter)) {
             current_line.push_back(current_value);
         }
+        if(current_line.size() == 0) {
+            break;
+        }
         if(line_no != 0) {
             int integer_citing = std::stoi(current_line[0]);
             int integer_cited = std::stoi(current_line[1]);
@@ -39,6 +42,9 @@ void Graph::ParseNodelist() {
         std::vector<std::string> current_line;
         while(std::getline(ss, current_value, delimiter)) {
             current_line.push_back(current_value);
+        }
+        if(current_line.size() == 0) {
+            break;
         }
         if (line_no != 0) {
             int integer_node = std::stoi(current_line[header_to_index_map["node_id"]]);
