@@ -746,7 +746,7 @@ int ABM::GetBinIndex(int year_diff) {
             return i;
         }
     }
-    return this->bin_boundaries.size();
+    return this->bin_boundaries.size() - 1;
 }
 
 int ABM::GetBinIndex(Graph* graph, int current_node, int current_year) {
