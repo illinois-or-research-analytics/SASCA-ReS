@@ -26,5 +26,5 @@ cmake --install .
 
 cd ${external_libs_full_path}
 git clone "https://github.com/imneme/pcg-cpp.git"
-git clone "https://github.com/jtilly/inih.git"
+git clone "https://github.com/benhoyt/inih.git"
 git clone "https://github.com/p-ranav/argparse.git"

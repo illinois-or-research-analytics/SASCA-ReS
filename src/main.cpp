@@ -24,14 +24,7 @@ int main(int argc, char* argv[]) {
     INIReader reader(config_file);
     int error_code = reader.ParseError();
     if (error_code != 0) {
-        std::cout << "Invalid config file. Error in reading " + config_file + "\n";
-        if (error_code == -1) {
-            std::cout << "File open error" << std::endl;
-        } else if (error_code == -2) {
-            std::cout << "Out of memory error" << std::endl;
-        } else {
-            std::cout << "Error line in config file is " + std::to_string(error_code)  << "\n";
-        }
+        std::cout << reader.ParseErrorMessage() << std::endl;;
         return 1;
     }
 
@@ -128,6 +121,48 @@ int main(int argc, char* argv[]) {
 /* num_processors=<INT> ; integer valued maximum parallelism allowed */
 /* log_level=<INT> ; 0, 1, and 2 for silent, info, and verbose */
 /* reader.Get("user", "name", "UNKNOWN") << ", email=" */
+    /* std::vector<std::string> section_expected_variables = {"Environment", "Agent", "General"}; */
+    const std::unordered_map<std::string, std::vector<std::string>> required_params = {
+        {"Environment", {"edgelist", "nodelist", "out_degree_bag", "recency_table", "planted_nodes", "growth_rate", "num_cycles", "recency_bins", "start_from_checkpoint"}},
+        {"Agent", {"fully_random_citations", "preferential_weight", "fitness_weight", "fitness_value_min", "fitness_value_max", "same_year_citations", "neighborhood_sample", "alpha", "use_alpha"}},
+        {"General", {"output_file", "auxiliary_information_file", "log_file", "num_processors", "log_level"}}
+    };
+    for(auto const& [section_name, section_expected_variables] : required_params) {
+        if(!reader.HasSection(section_name)) {
+            std::cerr << "Required section: " + section_name + " is missing" << std::endl;
+            std::cerr << "The list of required sections is: ";
+            bool first = true;
+            for(auto const& [diagnostic_section_name, diagnostic_section_expected_variables] : required_params) {
+                if (first) {
+                    first = false;
+                } else {
+                    std::cerr << ", ";
+                }
+                std::cerr << diagnostic_section_name;
+            }
+            std::cerr << std::endl;
+            exit(1);
+        }
+        for(auto const& section_expected_variable : section_expected_variables) {
+            if(!reader.HasValue(section_name, section_expected_variable)) {
+                std::cerr << "Required value: " + section_expected_variable + " in section: " + section_name + " is missing" << std::endl;
+                std::cerr << "The list of required variables for section " + section_name + " is: ";
+                bool first = true;
+                for(auto const& diagnostic_section_expected_variable : section_expected_variables) {
+                    if (first) {
+                        first = false;
+                    } else {
+                        std::cerr << ", ";
+                    }
+                    std::cerr << diagnostic_section_expected_variable;
+                }
+                std::cerr << std::endl;
+                exit(1);
+            }
+        }
+    }
+
+
     std::string edgelist = reader.Get("Environment", "edgelist", "");
     std::string nodelist = reader.Get("Environment", "nodelist", "");
     std::string out_degree_bag = reader.Get("Environment", "out_degree_bag", "");
@@ -140,12 +175,12 @@ int main(int argc, char* argv[]) {
     double fitness_weight = reader.GetReal("Agent", "fitness_weight", -42);
     int fitness_value_min = reader.GetInteger("Agent", "fitness_value_min", -42);
     int fitness_value_max = reader.GetInteger("Agent", "fitness_value_max", -42);
-    double minimum_preferential_weight = reader.GetReal("Agent", "minimum_preferential_weight", -42);
-    double minimum_fitness_weight = reader.GetReal("Agent", "minimum_fitness_weight", -42);
+    double minimum_preferential_weight = reader.GetReal("Agent", "minimum_preferential_weight", -42); // unused
+    double minimum_fitness_weight = reader.GetReal("Agent", "minimum_fitness_weight", -42); // unused
     double same_year_citations = reader.GetReal("Agent", "same_year_citations", -42);
     int neighborhood_sample = reader.GetInteger("Agent", "neighborhood_sample", -42);
     double alpha = reader.GetReal("Agent", "alpha", -42);
-    double minimum_alpha = reader.GetReal("Agent", "minimum_alpha", -42);
+    double minimum_alpha = reader.GetReal("Agent", "minimum_alpha", -42); // unused
     std::string use_alpha_string = reader.Get("Agent", "use_alpha", "");
     bool use_alpha = false;
     if (use_alpha_string == "true") {

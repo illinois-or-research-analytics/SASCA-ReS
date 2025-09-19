@@ -337,7 +337,11 @@ void ABM::PopulateAlphaArr(double* alpha_arr, int len) {
     pcg_extras::seed_seq_from<std::random_device> rand_dev;
     pcg32 generator(rand_dev);
 
-    if(this->alpha < 0) {
+    if(!this->use_alpha) {
+        for(int i = 0; i < len; i ++) {
+            alpha_arr[i] = -1;
+        }
+    } else if(this->alpha == -1) {
         for(int i = 0; i < len; i ++) {
             double alpha_uniform = this->alpha_uniform_distribution(generator);
             alpha_uniform = std::round(alpha_uniform * 1000.0) / 1000.0;
@@ -1179,7 +1183,7 @@ bool ABM::ValidateArguments() {
         if (this->alpha == -42) {
             this->WriteToLogFile("Alpha ignored. Agents will not split the neighborhood into 1 and 2 distance neighborhoods", Log::info);
         } else {
-            this->WriteToLogFile("'use_alpha' is false but a value for 'alpha' was provided", Log::error);
+            this->WriteToLogFile("'use_alpha' is false but a value of" + std::to_string(this->alpha) + " for 'alpha' was provided. Leave the alpha line as 'alpha=' with an empty string as the alpha value if alpha should be ignored.", Log::error);
             return false;
         }
     }
@@ -1214,6 +1218,7 @@ int ABM::main() {
     if (!this->ValidateBinBoundaries()) {
         return 1;
     }
+    exit(1);
     Graph* graph = new Graph(this->edgelist, this->nodelist, this->start_from_checkpoint);
     this->WriteToLogFile("loaded graph", Log::info);
     /* node ids to continous integer from 0 */
