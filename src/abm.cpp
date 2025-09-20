@@ -1218,7 +1218,6 @@ int ABM::main() {
     if (!this->ValidateBinBoundaries()) {
         return 1;
     }
-    exit(1);
     Graph* graph = new Graph(this->edgelist, this->nodelist, this->start_from_checkpoint);
     this->WriteToLogFile("loaded graph", Log::info);
     /* node ids to continous integer from 0 */
