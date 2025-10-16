@@ -161,6 +161,9 @@ std::unordered_map<int, int> ABM::ReverseMapping(std::unordered_map<int, int> ma
 
 void ABM::FillInDegreeArr(Graph* graph, const std::unordered_map<int, int>& continuous_node_mapping, int* in_degree_arr) {
     for(auto const& node: graph->GetNodeSet()) {
+        if (!continuous_node_mapping.contains(node)) {
+            std::cerr << std::to_string(node) << " not in continuous node mapping " << std::endl;
+        }
         int continuous_id = continuous_node_mapping.at(node);
         in_degree_arr[continuous_id] = graph->GetInDegree(node);
     }
@@ -493,6 +496,7 @@ int ABM::MakeUniformRandomCitationsFromGraph(Graph* graph, const std::unordered_
     if (num_citations <= 0) {
         return 0;
     }
+    /* std::cerr << "uniformm random citaitons to graph: " << std::to_string(num_cited_so_far) << " cited so far, " << std::to_string(num_citations) << " citations to graph requested" << std::endl; */
     int actual_num_cited = num_citations;
     std::set<int> selected;
     for(int i = 0; i < num_cited_so_far; i ++) {
@@ -503,11 +507,14 @@ int ABM::MakeUniformRandomCitationsFromGraph(Graph* graph, const std::unordered_
     }
     if ((int)graph->GetNodeSet().size() - (int)selected.size() <= num_citations) {
         actual_num_cited = (int)graph->GetNodeSet().size() - (int)selected.size();
-        for(int i = 0; i < actual_num_cited; i ++) {
-            int current_cited_node = reverse_continuous_node_mapping.at(i);
-            if (!selected.contains(current_cited_node)) {
-                citations[num_cited_so_far + i] = current_cited_node;
-                selected.insert(current_cited_node);
+        /* for(int i = 0; i < actual_num_cited; i ++) { */
+        int current_citation_index = 0;
+        for(auto const& node_id : graph->GetNodeSet()) {
+            /* int current_cited_node = reverse_continuous_node_mapping.at(i); */
+            if (!selected.contains(node_id)) {
+                citations[num_cited_so_far + current_citation_index] = node_id;
+                selected.insert(node_id);
+                current_citation_index ++;
             }
         }
     } else {
@@ -519,6 +526,9 @@ int ABM::MakeUniformRandomCitationsFromGraph(Graph* graph, const std::unordered_
         while(current_citation_index < actual_num_cited) {
             int current_citation = int_uniform_distribution(generator);
             int current_cited_node = reverse_continuous_node_mapping.at(current_citation);
+            if (current_cited_node < 0) {
+                std::cerr << "randomly selected negative node: " << std::to_string(current_cited_node) << " from continous index: " << std::to_string(current_citation) << std::endl;
+            }
             if (!selected.contains(current_cited_node)) {
                 citations[num_cited_so_far + current_citation_index] = current_cited_node;
                 selected.insert(current_cited_node);
@@ -526,6 +536,7 @@ int ABM::MakeUniformRandomCitationsFromGraph(Graph* graph, const std::unordered_
             }
         }
     }
+    /* std::cerr << std::to_string(actual_num_cited) << " nodes cited" << std::endl; */
     return actual_num_cited;
 }
 
@@ -1346,6 +1357,7 @@ int ABM::main() {
             local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make same year citations");
 
             for(size_t current_neighborhood_index = 1; current_neighborhood_index < n_hop_map.size() + 1; current_neighborhood_index ++) { // 2 iter if use alpha true
+                sampled_neighborhood_sizes_map[i] += n_hop_map.at(current_neighborhood_index).size();
                 std::unordered_map<int, std::vector<int>> binned_neighborhood = this->BinNeighborhood(graph, current_year, n_hop_map.at(current_neighborhood_index));
                 local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "bin neighborhood");
 
@@ -1354,6 +1366,11 @@ int ABM::main() {
                     num_actually_cited += this->MakeCitations(graph, continuous_node_mapping, current_year, binned_neighborhood[bin_index], citations + num_actually_cited, pa_arr, fit_arr, pa_weight, fit_weight, current_graph_size, outdegree_per_bin_map[bin_index]);
                 }
                 num_actually_cited += this->MakeUniformRandomCitations(graph, continuous_node_mapping, current_year, binned_neighborhood[this->num_bins - 1], citations + num_actually_cited, current_graph_size, outdegree_per_bin_map[this->num_bins - 1]);
+            }
+            for(int j = 0; j < num_actually_cited; j ++) {
+                if (citations[j] < 0) {
+                    std::cerr << "[checking before uniform random to graph] regular citation negative: " << std::to_string(citations[j]) << std::endl;
+                }
             }
 
             local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make neighborhood citations");
@@ -1364,9 +1381,16 @@ int ABM::main() {
             local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "make random citations");
 
             for(size_t j = 0; j < generator_nodes.size(); j ++) {
+                if (generator_nodes[j] < 0) {
+                    std::cerr << "generator node negative: " << std::to_string(generator_nodes[j]) << std::endl;
+                }
                 local_new_edges_vec.push_back({new_node, generator_nodes[j]});
             }
             for(int j = 0; j < num_actually_cited; j ++) {
+                if (citations[j] < 0) {
+                    std::cerr << "regular citation negative: " << std::to_string(citations[j])  << " at index " << std::to_string(j) << std::endl;
+                    std::cerr << "num_actually_cited: " << std::to_string(num_actually_cited) << std::endl;
+                }
                 local_new_edges_vec.push_back({new_node, citations[j]});
             }
             new_edges_vec.insert(new_edges_vec.end(), local_new_edges_vec.begin(), local_new_edges_vec.end());
@@ -1387,6 +1411,9 @@ int ABM::main() {
             int new_node = new_edges_vec[i].first;
             int destination_id = new_edges_vec[i].second;
             graph->AddEdge({new_node, destination_id});
+            if (new_node < 0 || destination_id < 0) {
+                std::cerr << "making edge" << std::to_string(new_node) << " -> " << std::to_string(destination_id) << std::endl;
+            }
         }
         this->LogTime(current_year, "Add edges to graph");
 

@@ -205,7 +205,7 @@ class ABM {
                 double base_left = (pow(this->fitness_value_max, adjusted_alpha) - pow(this->fitness_value_min, adjusted_alpha)) * fitness_uniform;
                 double base_right = pow(this->fitness_value_min, adjusted_alpha);
                 double exponent = 1.0/adjusted_alpha;
-                int fitness_power = pow(base_left + base_right ,exponent);
+                int fitness_power = std::round(pow(base_left + base_right ,exponent));
                 graph->SetIntAttribute("fitness_peak_value", node, fitness_power);
             }
         }
