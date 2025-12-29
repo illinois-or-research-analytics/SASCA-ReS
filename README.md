@@ -66,6 +66,10 @@ fitness_weight=<DOUBLE> ; floating point value e.g., 0.33
 fitness_value_min=<INT> ; minimum fitness value (inclusive)
 fitness_value_max=<INT> ; maximum fitness value (inclusive)
 neighborhood_sample=<INT> ; maximum number of nodes to sample from each neighborhood
+in_degree_threshold=<INT> ; used for non-random generator selection. Selects the top <INT> percentile nodes by in-degree value
+fitness_threshold=<INT> ; used for non-random generator selection. Selects the top <INT> percentile nodes by fitness value
+recency_threshold=<INT> ; used for non-random generator selection. Selects only from the past <INT> years
+non_random_generator_probability=<DOUBLE> ; used for non-random generator selection. 0.9 for 90% of the nodes picking non-random generators
 
 
 [General]
@@ -122,6 +126,10 @@ In order to do a "single-bin model" run, in which agents cite based on preferent
 - `fitness_value_min`: minimum possible integer fitness value for each agent.
 - `fitness_value_max`: maximum possible integer fitness value for each agent.
 - `neighborhood_sample`: maximum number of nodes to sample from each neighborhood. The neighborhoods of the genartor will be sampled such that the final list of nodes is at most this number.
+- `in_degree_threshold`: used for non-random generator selection. Selects the top percentile nodes by in-degree value, meaning that the top nth percentile node is found by in-degree, afterwhich all nodes with in-degree value at least that value is selected.
+- `fitness_threshold`: used for non-random generator selection. Selects the top percentile nodes by fitness value, meaning that the top nth percentile node is found by fitness, afterwhich all nodes with fitness value at least that value is selected.
+- `recency_threshold`: used for non-random generator selection. Selects only from the past n years e.g., if `recency_threshold=5` and current year is 1988, then 5 years of publications will be considered so the nodes with publication year at least 1983 and at most 1987.
+- `non_random_generator_probability`: Probability of each node to select a generator node in a non-random manner according to the different thresholds. Set to 0 for fully random and 1 for all non-random.
 
 
 #### General flags
