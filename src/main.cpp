@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
     /* std::vector<std::string> section_expected_variables = {"Environment", "Agent", "General"}; */
     const std::unordered_map<std::string, std::vector<std::string>> required_params = {
         {"Environment", {"edgelist", "nodelist", "out_degree_bag", "recency_table", "planted_nodes", "growth_rate", "num_cycles", "recency_bins", "start_from_checkpoint"}},
-        {"Agent", {"fully_random_citations", "preferential_weight", "fitness_weight", "fitness_value_min", "fitness_value_max", "same_year_citations", "neighborhood_sample", "alpha", "use_alpha"}},
+        {"Agent", {"fully_random_citations", "preferential_weight", "fitness_weight", "fitness_value_min", "fitness_value_max", "same_year_citations", "neighborhood_sample", "alpha", "use_alpha", "in_degree_threshold", "fitness_threshold", "recency_threshold", "non_random_generator_probability"}},
         {"General", {"output_file", "auxiliary_information_file", "log_file", "num_processors", "log_level"}}
     };
     for(auto const& [section_name, section_expected_variables] : required_params) {
@@ -191,6 +191,10 @@ int main(int argc, char* argv[]) {
         std::cerr << "Valid values for required flag use_alpha are 'true' or 'false'" << std::endl;
         return 1;
     }
+    int in_degree_threshold = reader.GetInteger("Agent", "in_degree_threshold", -42);
+    int fitness_threshold = reader.GetInteger("Agent", "fitness_threshold", -42);
+    int recency_threshold = reader.GetInteger("Agent", "recency_threshold", -42);
+    double non_random_generator_probability = reader.GetReal("Agent", "non_random_generator_probability", -42);
     std::string start_from_checkpoint_string = reader.Get("Environment", "start_from_checkpoint", "");
     bool start_from_checkpoint = false;
     if (start_from_checkpoint_string == "true") {
@@ -208,7 +212,7 @@ int main(int argc, char* argv[]) {
     std::string log_file = reader.Get("General", "log_file", "");
     int num_processors = reader.GetInteger("General", "num_processors", -42);
     int log_level = reader.GetInteger("General", "log_level", -41) - 1;
-    ABM* abm = new ABM(edgelist, nodelist, out_degree_bag, recency_table, recency_bins, alpha, minimum_alpha, use_alpha, start_from_checkpoint, planted_nodes, fully_random_citations, preferential_weight, fitness_weight, fitness_value_min, fitness_value_max, minimum_preferential_weight, minimum_fitness_weight, growth_rate, num_cycles, same_year_citations, neighborhood_sample, output_file, auxiliary_information_file, log_file, num_processors, log_level);
+    ABM* abm = new ABM(edgelist, nodelist, out_degree_bag, recency_table, recency_bins, alpha, minimum_alpha, use_alpha, start_from_checkpoint, planted_nodes, fully_random_citations, preferential_weight, fitness_weight, fitness_value_min, fitness_value_max, minimum_preferential_weight, minimum_fitness_weight, in_degree_threshold, fitness_threshold, recency_threshold, non_random_generator_probability, growth_rate, num_cycles, same_year_citations, neighborhood_sample, output_file, auxiliary_information_file, log_file, num_processors, log_level);
     abm->main();
     delete abm;
 }

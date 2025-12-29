@@ -680,6 +680,112 @@ int ABM::MakeCitations(Graph* graph, const std::unordered_map<int, int>& continu
     return actual_num_cited;
 }
 
+std::vector<int> ABM::GetEligibleGeneratorNodes(Graph* graph, int graph_size, const std::unordered_map<int, int>& reverse_continuous_node_mapping, int* in_degree_arr, int* fitness_arr, int in_degree_threshold, int fitness_threshold, int start_year, int current_year, int recency_threshold) {
+    std::vector<std::pair<double, int>> in_degree_eligible_generator_nodes;
+    std::vector<std::pair<double, int>> fitness_eligible_generator_nodes;
+    std::vector<int> eligible_generator_nodes;
+    std::cerr << "current year is " << current_year << " for a simulation where first year agents have year " << start_year << std::endl;
+    if (current_year - start_year <= recency_threshold) {
+        std::cerr << "starting eligible check by scanning the whole array" << std::endl;
+        for(int i = graph_size - 1; i >= 0; i --) {
+            int current_node_id = reverse_continuous_node_mapping.at(i);
+            if ((current_year - graph->GetIntAttribute("year", current_node_id)) > recency_threshold) {
+                /* std::cerr << "these nodes are too old since they were born in year " << graph->GetIntAttribute("year", current_node_id) << ". breaking." << std::endl; */
+            } else {
+                in_degree_eligible_generator_nodes.push_back({in_degree_arr[i], current_node_id});
+                if (graph->GetStringAttribute("type", current_node_id) == "seed") {
+                    fitness_eligible_generator_nodes.push_back({this->fitness_value_max, current_node_id});
+                } else {
+                    fitness_eligible_generator_nodes.push_back({fitness_arr[i], current_node_id});
+                }
+            }
+        }
+    } else {
+        std::cerr << "starting eligible check by only scanning the past " << recency_threshold << " years from the back" << std::endl;
+        for(int i = graph_size - 1; i >= 0; i --) {
+            int current_node_id = reverse_continuous_node_mapping.at(i);
+            if ((current_year - graph->GetIntAttribute("year", current_node_id)) > recency_threshold) {
+                std::cerr << "these nodes are too old since they were born in year " << graph->GetIntAttribute("year", current_node_id) << ". breaking." << std::endl;
+                break;
+            }
+            in_degree_eligible_generator_nodes.push_back({in_degree_arr[i], current_node_id});
+            fitness_eligible_generator_nodes.push_back({fitness_arr[i], current_node_id});
+        }
+    }
+    int in_degree_top_n_nodes_index = (int)((in_degree_eligible_generator_nodes.size() - 1) * ((double)in_degree_threshold / 100));
+    int fitness_top_n_nodes_index = (int)((fitness_eligible_generator_nodes.size() - 1) * ((double)fitness_threshold / 100));
+
+    std::cerr << "looking for top " << in_degree_threshold << " percentile in-degree and top " << fitness_threshold << " percentile fitness nodes" << " in the past " << recency_threshold << " years" << std::endl;
+    std::cerr << "there are " << in_degree_eligible_generator_nodes.size() << " nodes that fit by in-degree and we look for the top " << in_degree_top_n_nodes_index << " nodes" << std::endl;
+    std::cerr << "there are " << fitness_eligible_generator_nodes.size() << " nodes that fit by fitness and we look for the top " << fitness_top_n_nodes_index << " nodes" << std::endl;
+
+    /* std::partial_sort(in_degree_eligible_generator_nodes.begin(), in_degree_eligible_generator_nodes.begin() + in_degree_top_n_nodes_index, in_degree_eligible_generator_nodes.end(), [](auto& left, auto& right){ */
+    /*     return left.first > right.first; // read */
+    /* }); */
+    /* std::cerr << "in-degree sorted" << std::endl; */
+    /* std::partial_sort(fitness_eligible_generator_nodes.begin(), fitness_eligible_generator_nodes.begin() + fitness_top_n_nodes_index, fitness_eligible_generator_nodes.end(), [](auto& left, auto& right){ */
+    /*     return left.first > right.first; // read */
+    /* }); */
+    /* std::cerr << "fitness sorted" << std::endl; */
+    std::nth_element(in_degree_eligible_generator_nodes.begin(), in_degree_eligible_generator_nodes.begin() + in_degree_top_n_nodes_index, in_degree_eligible_generator_nodes.end(), [](auto& left, auto& right){
+        return left.first > right.first; // read
+    });
+    std::cerr << "in-degree sorted" << std::endl;
+    std::nth_element(fitness_eligible_generator_nodes.begin(), fitness_eligible_generator_nodes.begin() + fitness_top_n_nodes_index, fitness_eligible_generator_nodes.end(), [](auto& left, auto& right){
+        return left.first > right.first; // read
+    });
+    std::cerr << "fitness sorted" << std::endl;
+
+    /* if (in_degree_top_n_nodes_index < fitness_top_n_nodes_index) { */
+    /*     std::set<int> eligible_fitness_node_ids; */
+    /*     for (size_t i = 0; i < fitness_top_n_nodes_index; i ++) { */
+    /*         eligible_fitness_node_ids.insert(fitness_eligible_generator_nodes.at(i).second); */
+    /*     } */
+    /*     for (size_t i = 0; i < in_degree_top_n_nodes_index; i ++) { */
+    /*         int current_node_id = in_degree_eligible_generator_nodes.at(i).second; */
+    /*         if (eligible_fitness_node_ids.contains(current_node_id)) { */
+    /*             eligible_generator_nodes.push_back(current_node_id); */
+    /*         } */
+    /*     } */
+    /* } */
+    /* } else { */
+    std::set<int> eligible_in_degree_node_ids;
+    std::set<int> eligible_fitness_node_ids;
+    for (size_t i = 0; i < in_degree_eligible_generator_nodes.size(); i ++) {
+        if (in_degree_eligible_generator_nodes.at(i).first >= in_degree_eligible_generator_nodes.at(in_degree_top_n_nodes_index).first) {
+            eligible_in_degree_node_ids.insert(in_degree_eligible_generator_nodes.at(i).second);
+        }
+        if (fitness_eligible_generator_nodes.at(i).first >= fitness_eligible_generator_nodes.at(fitness_top_n_nodes_index).first) {
+            eligible_fitness_node_ids.insert(fitness_eligible_generator_nodes.at(i).second);
+        }
+    }
+    /* for (size_t i = 0; i < in_degree_top_n_nodes_index; i ++) { */
+    /*     eligible_in_degree_node_ids.insert(in_degree_eligible_generator_nodes.at(i).second); */
+    /* } */
+    /* for (size_t i = 0; i < fitness_top_n_nodes_index; i ++) { */
+    /*     eligible_fitness_node_ids.insert(fitness_eligible_generator_nodes.at(i).second); */
+    /* } */
+    std::cerr << "We lookd for them and got " << eligible_in_degree_node_ids.size() << " in-degreee eligible node ids and " << eligible_fitness_node_ids.size() << " fitness eligible node ids" << std::endl;
+    std::set_intersection(eligible_in_degree_node_ids.begin(), eligible_in_degree_node_ids.end(), eligible_fitness_node_ids.begin(), eligible_fitness_node_ids.end(), std::back_inserter(eligible_generator_nodes));
+    std::cerr << "there are " << eligible_generator_nodes.size() << " nodes in the intersection" << std::endl;
+    // only use in-degree if intersection 0?
+    return eligible_generator_nodes;
+}
+
+std::vector<int> ABM::GetGeneratorNodesFromSet(std::vector<int>& eligible_generator_nodes) {
+    std::vector<int> generator_nodes;
+    std::uniform_int_distribution<int> generator_uniform_distribution{0, (int)(eligible_generator_nodes.size() - 1)};
+    int num_generator_nodes = 1;
+    pcg_extras::seed_seq_from<std::random_device> rand_dev;
+    pcg32 generator(rand_dev);
+    for(int i = 0; i < num_generator_nodes; i ++) {
+        int continuous_generator_node = generator_uniform_distribution(generator);
+        int generator_node = eligible_generator_nodes.at(continuous_generator_node);
+        generator_nodes.push_back(generator_node);
+    }
+    return generator_nodes;
+}
+
 std::vector<int> ABM::GetGeneratorNodes(Graph* graph, const std::unordered_map<int, int>& reverse_continuous_node_mapping) {
     std::vector<int> generator_nodes;
     std::uniform_int_distribution<int> generator_uniform_distribution{0, (int)(graph->GetNodeSet().size() - 1)};
@@ -1181,6 +1287,18 @@ bool ABM::ValidateArguments() {
     if (!this->ValidateArgument("Agent", "neighborhood_sample", this->neighborhood_sample, -42)) {
         return false;
     }
+    if (!this->ValidateArgument("Agent", "in_degree_threshold", this->in_degree_threshold, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("Agent", "fitness_threshold", this->fitness_threshold, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("Agent", "recency_threshold", this->recency_threshold, -42)) {
+        return false;
+    }
+    if (!this->ValidateArgument("Agent", "non_random_generator_probability", this->non_random_generator_probability, -42)) {
+        return false;
+    }
     if (this->use_alpha) {
         if (this->alpha == -42) {
             this->WriteToLogFile("Required parameter 'alpha' was not found in the 'Agent' section while 'use_alpha' was true", Log::error);
@@ -1277,6 +1395,9 @@ int ABM::main() {
     }
     std::unordered_map<int, double> binned_recency_probabilities = GetBinnedRecencyProbabilities();
     Eigen::setNbThreads(1);
+    pcg_extras::seed_seq_from<std::random_device> rand_dev;
+    pcg32 generator(rand_dev);
+    std::uniform_real_distribution<double> non_random_generator_uniform_distribution{0, 1};
     for (int current_year = start_year; current_year < start_year + this->num_cycles; current_year ++) {
         this->prev_time = std::chrono::steady_clock::now();
         int current_graph_size = graph->GetNodeSet().size();
@@ -1305,10 +1426,17 @@ int ABM::main() {
         this->FillSameYearSourceNodes(same_year_source_nodes, new_nodes_vec.size());
         this->LogTime(current_year, "Pick same year nodes");
 
+        std::vector<int> eligible_generator_nodes = this->GetEligibleGeneratorNodes(graph, current_graph_size, reverse_continuous_node_mapping, in_degree_arr, fitness_arr, this->in_degree_threshold, this->fitness_threshold, start_year, current_year, this->recency_threshold);
         for(size_t i = 0; i < new_nodes_vec.size(); i ++) {
             int new_node = new_nodes_vec[i];
-            std::vector<int> generator_nodes = this->GetGeneratorNodes(graph, reverse_continuous_node_mapping);
-            this->UpdateGraphAttributesGeneratorNodes(graph, new_node, generator_nodes);
+            double new_node_non_random_draw = non_random_generator_uniform_distribution(generator);
+            if (new_node_non_random_draw < this->non_random_generator_probability) {
+                std::vector<int> generator_nodes = this->GetGeneratorNodesFromSet(eligible_generator_nodes);
+                this->UpdateGraphAttributesGeneratorNodes(graph, new_node, generator_nodes);
+            } else {
+                std::vector<int> generator_nodes = this->GetGeneratorNodes(graph, reverse_continuous_node_mapping);
+                this->UpdateGraphAttributesGeneratorNodes(graph, new_node, generator_nodes);
+            }
         }
         this->LogTime(current_year, "Pick generator nodes");
         std::vector<int> sampled_neighborhood_sizes_map(new_nodes_vec.size());
