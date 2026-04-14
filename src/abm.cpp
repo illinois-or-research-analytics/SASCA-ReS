@@ -1013,7 +1013,15 @@ std::unordered_map<int, std::vector<int>> ABM::GetOneAndTwoDistanceNeighborhoods
                             }
                         }
                     }
-                    std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(n_hop_map[2]), max_neighborhood_size - n_hop_map[2].size(), generator);
+                    // std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(n_hop_map[2]), max_neighborhood_size - n_hop_map[2].size(), generator);
+                    std::vector<int> sampled_neighborhood;
+                    std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(sampled_neighborhood), max_neighborhood_size - n_hop_map[2].size(), generator);
+                    for(size_t i = 0; i < sampled_neighborhood.size(); i ++) {
+                        if (!visited.contains(sampled_neighborhood.at(i))) {
+                            visited.insert(sampled_neighborhood.at(i));
+                            n_hop_map[2].push_back(sampled_neighborhood.at(i));
+                        }
+                    }
                     if (n_hop_map[2].size() == max_neighborhood_size) {
                         return n_hop_map;
                     }
@@ -1141,7 +1149,15 @@ std::unordered_map<int, std::vector<int>> ABM::GetNHopNeighborhood(Graph* graph,
                             }
                         }
                     }
-                    std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(n_hop_neighborhood), max_neighborhood_size - n_hop_neighborhood.size(), generator);
+                    std::vector<int> sampled_neighborhood;
+                    // std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(n_hop_neighborhood), max_neighborhood_size - n_hop_neighborhood.size(), generator);
+                    std::sample(to_be_sampled_neighborhood.begin(), to_be_sampled_neighborhood.end(), std::back_inserter(sampled_neighborhood), max_neighborhood_size - n_hop_neighborhood.size(), generator);
+                    for(size_t i = 0; i < sampled_neighborhood.size(); i ++) {
+                        if (!visited.contains(sampled_neighborhood.at(i))) {
+                            visited.insert(sampled_neighborhood.at(i));
+                            n_hop_neighborhood.push_back(sampled_neighborhood.at(i));
+                        }
+                    }
                     if (n_hop_neighborhood.size() == max_neighborhood_size) {
                         n_hop_map[1] = n_hop_neighborhood;
                         return n_hop_map;
@@ -1513,6 +1529,7 @@ int ABM::main() {
                     std::cerr << "generator node negative: " << std::to_string(generator_nodes[j]) << std::endl;
                 }
                 local_new_edges_vec.push_back({new_node, generator_nodes[j]});
+                // new_edges_vec.push_back({new_node, generator_nodes[j]});
             }
             for(int j = 0; j < num_actually_cited; j ++) {
                 if (citations[j] < 0) {
@@ -1520,6 +1537,7 @@ int ABM::main() {
                     std::cerr << "num_actually_cited: " << std::to_string(num_actually_cited) << std::endl;
                 }
                 local_new_edges_vec.push_back({new_node, citations[j]});
+                // new_edges_vec.push_back({new_node, citations[j]});
             }
             new_edges_vec.insert(new_edges_vec.end(), local_new_edges_vec.begin(), local_new_edges_vec.end());
             local_prev_time = this->LocalLogTime(local_parallel_stage_time_vec, local_prev_time, "record edges");
