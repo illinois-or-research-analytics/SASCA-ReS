@@ -53,7 +53,7 @@ out_degree_bag=<FILE> ; csv derived from a real-world network
 growth_rate=<DOUBLE> ; floating point value e.g., 0.03 for 3%
 num_cycles=<INT> ; integer value e.g., 30 for a 30-year simulation
 recency_bins=<STRING> ; string with comma separated values for each bin
-planted_agents=<(optional) FILE> ; csv with planted agent in the format (year,fitness_lag_duration,fitness_peak_value,fitness_peak_duration,count) on each line
+planted_agents=<(optional) FILE> ; csv with planted agent in the format (year,pa\_weight,fit\_weight,out\_degree,alpha,fitness\_lag\_duration,fitness\_peak\_value,fitness\_peak\_duration,count) on each line
 start_from_checkpoint=<BOOL> ; boolean value e.g., true or false for whether to start from a checkpoint or not
 
 [Agent]
