@@ -345,15 +345,15 @@ void ABM::PopulateAlphaArr(double* alpha_arr, int len) {
             alpha_arr[i] = -1;
         }
     } else if(this->alpha == -1) {
+        // randomized alpha: minimum_alpha/maximum_alpha optionally bound
+        // the draw, defaulting to [0,1] (the pre-existing behavior) when
+        // not set -- see ValidateArguments for the bounds check
+        double lower_bound = (this->minimum_alpha != -42) ? this->minimum_alpha : 0;
+        double upper_bound = (this->maximum_alpha != -42) ? this->maximum_alpha : 1;
+        std::uniform_real_distribution<double> bounded_alpha_uniform_distribution{lower_bound, upper_bound};
         for(int i = 0; i < len; i ++) {
-            double alpha_uniform = this->alpha_uniform_distribution(generator);
+            double alpha_uniform = bounded_alpha_uniform_distribution(generator);
             alpha_uniform = std::round(alpha_uniform * 1000.0) / 1000.0;
-            alpha_arr[i] = alpha_uniform;
-        }
-    } else if(this->minimum_alpha > 0) {
-        for(int i = 0; i < len; i ++) {
-            std::uniform_real_distribution<double> minimum_alpha_uniform_distribution{minimum_alpha, 1};
-            double alpha_uniform = minimum_alpha_uniform_distribution(generator);
             alpha_arr[i] = alpha_uniform;
         }
     } else {
@@ -1320,8 +1320,31 @@ bool ABM::ValidateArguments() {
             this->WriteToLogFile("Required parameter 'alpha' was not found in the 'Agent' section while 'use_alpha' was true", Log::error);
             return false;
         } else if (this->alpha == -1) {
-            this->WriteToLogFile("alpha: randomized", Log::info);
+            bool bounds_given = (this->minimum_alpha != -42) || (this->maximum_alpha != -42);
+            if (this->maximum_alpha != -42 && this->minimum_alpha == -42) {
+                this->WriteToLogFile("'maximum_alpha' was provided without 'minimum_alpha'. Both are required together to bound randomized alpha.", Log::error);
+                return false;
+            }
+            double lower_bound = (this->minimum_alpha != -42) ? this->minimum_alpha : 0;
+            double upper_bound = (this->maximum_alpha != -42) ? this->maximum_alpha : 1;
+            if (lower_bound < 0 || lower_bound > 1) {
+                this->WriteToLogFile("'minimum_alpha' must be between 0 and 1", Log::error);
+                return false;
+            }
+            if (upper_bound <= lower_bound || upper_bound > 1) {
+                this->WriteToLogFile("'maximum_alpha' must be greater than 'minimum_alpha' and at most 1", Log::error);
+                return false;
+            }
+            if (bounds_given) {
+                this->WriteToLogFile("alpha: randomized in [" + std::to_string(lower_bound) + ", " + std::to_string(upper_bound) + "]", Log::info);
+            } else {
+                this->WriteToLogFile("alpha: randomized", Log::info);
+            }
         } else {
+            if (this->minimum_alpha != -42 || this->maximum_alpha != -42) {
+                this->WriteToLogFile("'minimum_alpha'/'maximum_alpha' were provided but 'alpha' is not -1. Bounds only apply to randomized alpha -- set alpha=-1 to use them, or remove them to use the fixed alpha value.", Log::error);
+                return false;
+            }
             this->WriteToLogFile("alpha: " + std::to_string(this->alpha), Log::info);
         }
     } else {

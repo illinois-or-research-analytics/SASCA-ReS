@@ -118,6 +118,7 @@ In order to do a "single-bin model" run, in which agents cite based on preferent
 
 #### Agent flags
 - `alpha` floating point value specifying the alpha for neighborhood. This value for alpha determines the proportion of citations that are made to the 1-hop nodes of the generator node relative to the total number of citations that the agent will make to the generator node's neighborhood. It can be left to be -1 for a random model or a constant value such as 0.5.
+- `minimum_alpha` / `maximum_alpha`: optional floating point values that bound per-agent randomized alpha to a sub-range of [0,1] instead of the full range, e.g. `minimum_alpha=0.5` and `maximum_alpha=0.99` draws each agent's alpha uniformly from [0.5, 0.99]. Both require `alpha=-1`; providing either while `alpha` is a fixed value is an error. `maximum_alpha` requires `minimum_alpha` to also be set. If `minimum_alpha` is set without `maximum_alpha`, the upper bound defaults to 1.
 - `use_alpha` boolean value e.g., true or false for whether to use alpha or not. When alpha i
 - `same_year_citations`: floating point value e.g., 0.12 for 12%. This value determines the proportion of new agents in a given year that cite another agent from the same year.
 - `fully_random_citations`: floating point value e.g., 0.05 for 5%. This value determines the proportion of assigned out-degree that goes towards citing any node from the graph in a fully random manner.

@@ -106,7 +106,9 @@ int main(int argc, char* argv[]) {
 /* num_cycles=<INT> ; integer value e.g., 30 for a 30-year simulation */
 
 /* [Agent] */
-/* alpha=<FLOAT> ; floating point value specifying the alpha for neighborhood */
+/* alpha=<FLOAT> ; floating point value specifying the alpha for neighborhood. -1 if randomized. */
+/* minimum_alpha=<FLOAT> ; (optional) lower bound for per-agent randomized alpha, in [0,1]. Requires alpha=-1 -- an error if alpha is a fixed value. If maximum_alpha is not also set, defaults to drawing from [minimum_alpha, 1]. */
+/* maximum_alpha=<FLOAT> ; (optional) upper bound for per-agent randomized alpha, in (minimum_alpha, 1]. Requires alpha=-1 and minimum_alpha to also be set. Alpha is drawn uniformly from [minimum_alpha, maximum_alpha] for each agent. */
 /* recency_bins=<FILE> ; csv file for recency bins */
 /* same_year=<DOUBLE> ; floating point value e.g., 0.12 for 12% */
 /* fully_random_citations=<DOUBLE> ; floating point value e.g., 0.05 for 5% */
@@ -180,7 +182,8 @@ int main(int argc, char* argv[]) {
     double same_year_citations = reader.GetReal("Agent", "same_year_citations", -42);
     int neighborhood_sample = reader.GetInteger("Agent", "neighborhood_sample", -42);
     double alpha = reader.GetReal("Agent", "alpha", -42);
-    double minimum_alpha = reader.GetReal("Agent", "minimum_alpha", -42); // unused
+    double minimum_alpha = reader.GetReal("Agent", "minimum_alpha", -42); // optional: lower bound for randomized alpha, requires alpha=-1
+    double maximum_alpha = reader.GetReal("Agent", "maximum_alpha", -42); // optional: upper bound for randomized alpha, requires alpha=-1 and minimum_alpha to be set
     std::string use_alpha_string = reader.Get("Agent", "use_alpha", "");
     bool use_alpha = false;
     if (use_alpha_string == "true") {
@@ -212,7 +215,7 @@ int main(int argc, char* argv[]) {
     std::string log_file = reader.Get("General", "log_file", "");
     int num_processors = reader.GetInteger("General", "num_processors", -42);
     int log_level = reader.GetInteger("General", "log_level", -41) - 1;
-    ABM* abm = new ABM(edgelist, nodelist, out_degree_bag, recency_table, recency_bins, alpha, minimum_alpha, use_alpha, start_from_checkpoint, planted_nodes, fully_random_citations, preferential_weight, fitness_weight, fitness_value_min, fitness_value_max, minimum_preferential_weight, minimum_fitness_weight, in_degree_threshold, fitness_threshold, recency_threshold, non_random_generator_probability, growth_rate, num_cycles, same_year_citations, neighborhood_sample, output_file, auxiliary_information_file, log_file, num_processors, log_level);
+    ABM* abm = new ABM(edgelist, nodelist, out_degree_bag, recency_table, recency_bins, alpha, minimum_alpha, maximum_alpha, use_alpha, start_from_checkpoint, planted_nodes, fully_random_citations, preferential_weight, fitness_weight, fitness_value_min, fitness_value_max, minimum_preferential_weight, minimum_fitness_weight, in_degree_threshold, fitness_threshold, recency_threshold, non_random_generator_probability, growth_rate, num_cycles, same_year_citations, neighborhood_sample, output_file, auxiliary_information_file, log_file, num_processors, log_level);
     abm->main();
     delete abm;
 }
